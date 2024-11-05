@@ -203,7 +203,18 @@ class QuatrexConfig(BaseModel):
     photon: PhotonConfig | None = None
 
     # --- Directory paths ----------------------------------------------
+    config_dir: Path
     simulation_dir: Path = Path("./quatrex/")
+
+    @model_validator(mode="after")
+    def resolve_config_path(self) -> Self:
+        self.config_dir = Path(self.config_dir).resolve()
+        return self
+
+    @model_validator(mode="after")
+    def resolve_simulation_dir(self):
+        self.simulation_dir = (self.config_dir / self.simulation_dir).resolve()
+        return self
 
     @property
     def input_dir(self) -> Path:
@@ -212,7 +223,12 @@ class QuatrexConfig(BaseModel):
 
 def parse_config(config_file: Path) -> QuatrexConfig:
     """Reads the TOML config file."""
+
+    config_file = Path(config_file).resolve()
+
     with open(config_file, "rb") as f:
         config = tomllib.load(f)
+
+    config["config_dir"] = config_file.parent
 
     return QuatrexConfig(**config)
