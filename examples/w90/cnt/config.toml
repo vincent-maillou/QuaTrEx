@@ -13,7 +13,7 @@ solver = "rgf"
 eta = 1e-5
 
 [electron.obc]
-algorithm = "spectral" # "sancho-rubio"
+algorithm = "sancho-rubio" # "spectral"
 
 nevp_solver = "beyn"
 r_o = 10.0
@@ -30,7 +30,7 @@ convergence_tol = 1e-2
 solver = "rgf"
 
 [coulomb_screening.obc]
-algorithm = "spectral" # "sancho-rubio"
+algorithm = "sancho-rubio" # "spectral"
 block_sections = 1
 
 [phonon]
