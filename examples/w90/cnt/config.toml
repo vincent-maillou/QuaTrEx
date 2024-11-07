@@ -1,7 +1,7 @@
 simulation_dir = "/home/awinka/Python/new_quatrex/quatrex/examples/w90/cnt"
 
 [scba]
-max_iterations = 5
+max_iterations = 2
 mixing_factor = 1.0
 phonon = false
 coulomb_screening = true

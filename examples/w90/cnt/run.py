@@ -22,8 +22,10 @@ if __name__ == "__main__":
         print(f"Leaving SCBA after: {(toc - tic):.2f} s")
 
         output_dir = f"{PATH}/outputs"
-        os.mkdir(output_dir)
-
+        try:
+            os.mkdir(output_dir)
+        except FileExistsError:
+            pass
         np.save(f"{output_dir}/electron_ldos.npy", scba.observables.electron_ldos)
         np.save(f"{output_dir}/electron_density.npy", scba.observables.electron_density)
         np.save(f"{output_dir}/hole_density.npy", scba.observables.hole_density)
