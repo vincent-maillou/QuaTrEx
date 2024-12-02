@@ -162,6 +162,7 @@ cython_debug/
 # System
 gmon.out
 dev/
+notebooks/
 
 # Example outputs
 **/outputs/*

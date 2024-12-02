@@ -1,18 +1,19 @@
-simulation_dir = "."
+simulation_dir = "/home/awinka/Python/new_quatrex/quatrex/examples/w90/cnt"
 
 [scba]
-max_iterations = 5
+max_iterations = 2
 mixing_factor = 1.0
-phonon = true
+phonon = false
+coulomb_screening = true
 
 [electron]
 left_fermi_level = -3.9  # eV
-right_fermi_level = -3.8 # eV
+right_fermi_level = -3.9 # eV
 solver = "rgf"
 eta = 1e-5
 
 [electron.obc]
-algorithm = "spectral" # "sancho-rubio"
+algorithm = "sancho-rubio" # "spectral"
 
 nevp_solver = "beyn"
 r_o = 10.0
@@ -25,6 +26,12 @@ enable = true
 num_ref_iterations = 4
 convergence_tol = 1e-2
 
+[coulomb_screening]
+solver = "rgf"
+
+[coulomb_screening.obc]
+algorithm = "sancho-rubio" # "spectral"
+block_sections = 1
 
 [phonon]
 model = "pseudo-scattering"
