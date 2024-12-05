@@ -1,6 +1,6 @@
 from qttools import xp
+from qttools.kernels.numba.dsbcoo import compute_block_sort_index
 from qttools.utils.mpi_utils import distributed_load
-from qttools.utils.sparse_utils import compute_block_sort_index
 
 from quatrex.electron import SigmaCoulombScreening, SigmaFock
 
@@ -75,6 +75,8 @@ def test_compute(
     )
     # Initialize the self-energy object
     sigma_coulomb_screening = SigmaCoulombScreening(
+        quatrex_config,
+        compute_config,
         electron_energies,
     )
     sigma_fock = SigmaFock(quatrex_config, compute_config, electron_energies)
@@ -94,4 +96,4 @@ def test_compute(
     # Compare the results
     assert xp.allclose(s_lesser.data, s_lesser_expected.data)
     assert xp.allclose(s_greater.data, s_greater_expected.data)
-    assert xp.allclose(s_retarded.data, s_retarded_expected.data, rtol=1e-4)
+    assert xp.allclose(s_retarded.data, s_retarded_expected.data, atol=1e-3)

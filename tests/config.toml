@@ -10,10 +10,10 @@ phonon = false
 left_fermi_level = -3.85  # eV
 right_fermi_level = -3.85 # eV
 solver = "rgf"
-eta = 1e-6
+eta = 1e-8
 
 [electron.obc]
-algorithm = "sancho-rubio" # "spectral"
+algorithm = "spectral" # "sancho-rubio"
 
 nevp_solver = "beyn"
 r_o = 10.0
@@ -30,7 +30,7 @@ convergence_tol = 1e-2
 solver = "rgf"
 
 [coulomb_screening.obc]
-algorithm = "sancho-rubio" # "spectral"
+algorithm = "spectral" # "sancho-rubio"
 block_sections = 1
 
 [phonon]
