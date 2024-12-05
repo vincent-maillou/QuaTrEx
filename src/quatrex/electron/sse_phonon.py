@@ -11,7 +11,7 @@ from quatrex.core.statistics import bose_einstein
 
 
 class SigmaPhonon(ScatteringSelfEnergy):
-    """Computes the lesser electron-photon self-energy."""
+    """Computes the lesser electron-phonon self-energy."""
 
     def __init__(
         self,
@@ -28,6 +28,7 @@ class SigmaPhonon(ScatteringSelfEnergy):
                 raise ValueError(
                     "Electron energies must be provided for deformation potential model."
                 )
+            self.number_of_energies = electron_energies.size
             self.phonon_energy = config.phonon.phonon_energy
             self.deformation_potential = config.phonon.deformation_potential
             self.occupancy = bose_einstein(
@@ -42,7 +43,7 @@ class SigmaPhonon(ScatteringSelfEnergy):
             # energy - hbar * omega
             # <=> np.roll(self.electron_energies, downshift)[downshift:]
             self.downshift = (
-                electron_energies.size
+                self.number_of_energies
                 - np.argmin(
                     np.abs(
                         electron_energies - (electron_energies[-1] - self.phonon_energy)
@@ -66,7 +67,7 @@ class SigmaPhonon(ScatteringSelfEnergy):
         """Computes the diagonal indices for vectorized assignment."""
         stack_padding_mask = sigma_lesser._stack_padding_mask
         stack_padding_inds = stack_padding_mask.nonzero()[0][
-            self.downshift : -self.upshift
+            self.downshift : self.number_of_energies - self.upshift
         ]
         inds = np.zeros(sigma_lesser.shape[-1], dtype=int)
         ranks = np.zeros(sigma_lesser.shape[-1], dtype=int)
@@ -106,36 +107,38 @@ class SigmaPhonon(ScatteringSelfEnergy):
         if not hasattr(self, "_local_inds") or not hasattr(self, "_sigma_inds"):
             self._initialize_diag_inds(sigma_lesser)
 
-        sigma_lesser._data[self._sigma_inds] = self.deformation_potential**2 * (
-            self.occupancy
-            * np.roll(g_lesser.data[..., self._local_inds], self.downshift, axis=0)[
-                self.totalshift :
-            ]
-            + (self.occupancy + 1)
-            * np.roll(g_lesser.data[..., self._local_inds], -self.upshift, axis=0)[
-                : -self.totalshift
-            ]
+        sigma_lesser._data[self._sigma_inds] += 1j * np.imag(
+            self.deformation_potential**2
+            * (
+                self.occupancy
+                * np.roll(g_lesser.data[..., self._local_inds], self.downshift, axis=0)[
+                    self.totalshift :
+                ]
+                + (self.occupancy + 1)
+                * np.roll(g_lesser.data[..., self._local_inds], -self.upshift, axis=0)[
+                    : self.number_of_energies - self.totalshift
+                ]
+            )
         )
-        sigma_greater._data[self._sigma_inds] = self.deformation_potential**2 * (
-            self.occupancy
-            * np.roll(g_greater.data[..., self._local_inds], -self.upshift, axis=0)[
-                : -self.totalshift
-            ]
-            + (self.occupancy + 1)
-            * np.roll(g_greater.data[..., self._local_inds], self.downshift, axis=0)[
-                self.totalshift :
-            ]
+        sigma_greater._data[self._sigma_inds] += 1j * np.imag(
+            self.deformation_potential**2
+            * (
+                self.occupancy
+                * np.roll(g_greater.data[..., self._local_inds], -self.upshift, axis=0)[
+                    : self.number_of_energies - self.totalshift
+                ]
+                + (self.occupancy + 1)
+                * np.roll(
+                    g_greater.data[..., self._local_inds], self.downshift, axis=0
+                )[self.totalshift :]
+            )
         )
-
-        # Keep only the imaginary part.
-        sigma_lesser._data.real = 0.0
-        sigma_greater._data.real = 0.0
 
         sigma_retarded._data[
             sigma_retarded._stack_padding_mask,
             ...,
             : sigma_retarded.nnz_section_sizes[comm.rank],
-        ] = 0.5 * (sigma_greater.data - sigma_lesser.data)
+        ] += 0.5 * (sigma_greater.data - sigma_lesser.data)
 
         # ==== Full matrices ===========================================
         # nnz_stop = sigma_lesser.nnz_section_sizes[comm.rank]
