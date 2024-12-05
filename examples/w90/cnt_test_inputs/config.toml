@@ -10,7 +10,7 @@ coulomb_screening = true
 left_fermi_level = -3.85 # eV
 right_fermi_level = -3.85 # eV
 solver = "rgf"
-eta = 1e-6
+eta = 1e-8
 
 [electron.obc]
 algorithm = "sancho-rubio" # "spectral"
@@ -27,7 +27,6 @@ convergence_tol = 1e-2
 
 [coulomb_screening]
 solver = "rgf"
-eta = 1e-6
 
 [coulomb_screening.obc]
 algorithm = "sancho-rubio" # "spectral"
@@ -35,5 +34,5 @@ block_sections = 1
 
 [phonon]
 model = "pseudo-scattering"
-phonon_energy = 40e-3         # eV
-deformation_potential = 75e-3 # eV
+phonon_energy = 40e-4         # eV
+deformation_potential = 25e-3 # eV

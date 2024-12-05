@@ -102,7 +102,7 @@ class ElectronConfig(BaseModel):
     obc: OBCConfig = OBCConfig()
     lyapunov: LyapunovConfig = LyapunovConfig()
 
-    eta_obc: NonNegativeFloat = 1e-6  # eV
+    eta_obc: NonNegativeFloat = 1e-12  # eV
     eta: NonNegativeFloat = 1e-12  # eV
 
     fermi_level: float | None = None
