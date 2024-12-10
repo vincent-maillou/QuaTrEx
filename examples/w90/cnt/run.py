@@ -2,16 +2,18 @@ from threadpoolctl import threadpool_limits  # isort: skip
 import os
 import time
 
+import numba
 import numpy as np
 from mpi4py.MPI import COMM_WORLD as comm
 
 from quatrex.core.quatrex_config import parse_config
 from quatrex.core.scba import SCBA
 
+numba.set_num_threads(1)
 PATH = os.path.dirname(__file__)
 
 if __name__ == "__main__":
-    with threadpool_limits(limits=1):
+    with threadpool_limits(limits=7):
         config = parse_config(f"{PATH}/config.toml")
         scba = SCBA(config)
         tic = time.perf_counter()
