@@ -12,7 +12,10 @@ from quatrex.core.compute_config import ComputeConfig
 from quatrex.core.quatrex_config import QuatrexConfig
 from quatrex.core.statistics import bose_einstein
 from quatrex.core.subsystem import SubsystemSolver
-from quatrex.coulomb_screening.utils import assemble_boundary_blocks
+from quatrex.coulomb_screening.utils import (
+    assemble_boundary_blocks,
+    special_obc_multiply,
+)
 
 # from qttools.utils.stack_utils import scale_stack
 
@@ -56,7 +59,10 @@ def obc_multiply(
         # Corrections accounting for the fact that the matrices should have open ends.
         p.blocks[0, 0] += a.blocks[1, 0] @ b.blocks[0, 1]
         p.blocks[-1, -1] += a.blocks[-2, -1] @ b.blocks[-1, -2]
-        buffer.data[:] = p.data
+        try:
+            buffer.data[:] = p.data
+        except ValueError:
+            buffer.data[:] = p[*buffer.spy()]
     elif len(matrices) == 3:
         a, b, c = matrices
         p = a @ b @ c
@@ -219,6 +225,35 @@ class CoulombScreeningSolver(SubsystemSolver):
         self.right_occupancies = bose_einstein(
             self.local_energies,
             quatrex_config.coulomb_screening.temperature,
+        )
+        # Allocate memory for the boundary system matrix.
+        boundary_block_sizes = xp.hstack(
+            (self.small_block_sizes[:2], self.small_block_sizes[-2:])
+        )
+        boundary_overlap_data = sparse.lil_matrix(
+            (xp.sum(boundary_block_sizes), xp.sum(boundary_block_sizes)),
+            dtype=self.system_matrix.dtype,
+        )
+        boundary_overlap_data[
+            : xp.sum(boundary_block_sizes[:2]), : xp.sum(boundary_block_sizes[:2])
+        ] = self.overlap_sparray[
+            xp.sum(boundary_block_sizes[:2]) : xp.sum(boundary_block_sizes[:2]) * 2,
+            xp.sum(boundary_block_sizes[:2]) : xp.sum(boundary_block_sizes[:2]) * 2,
+        ]
+        boundary_overlap_data[
+            -xp.sum(boundary_block_sizes[-2:]) :, -xp.sum(boundary_block_sizes[-2:]) :
+        ] = self.overlap_sparray[
+            -xp.sum(boundary_block_sizes[-2:]) :, -xp.sum(boundary_block_sizes[-2:]) :
+        ]
+        self.boundary_system_matrix = compute_config.dbsparse_type.from_sparray(
+            boundary_overlap_data.tocoo(),
+            block_sizes=boundary_block_sizes,
+            global_stack_shape=(self.energies.size,),
+            densify_blocks=[
+                (i, j)
+                for i in range(len(boundary_block_sizes))
+                for j in range(max(i - 2, 0), min(i + 3, len(boundary_block_sizes)))
+            ],
         )
         # Allocate memory for the OBC blocks.
         self.obc_blocks_left = {}
@@ -409,6 +444,9 @@ class CoulombScreeningSolver(SubsystemSolver):
         # Assemble the system matrix.
         self._assemble_system_matrix(self.v_times_p_retarded)
         # Assemble the boundary blocks.
+        special_obc_multiply(
+            self.boundary_system_matrix, self.coulomb_matrix, p_retarded
+        )
         assemble_boundary_blocks(
             self.obc_blocks_left["diag"],
             self.obc_blocks_left["right"],
@@ -416,7 +454,7 @@ class CoulombScreeningSolver(SubsystemSolver):
             self.obc_blocks_right["diag"],
             self.obc_blocks_right["above"],
             self.obc_blocks_right["left"],
-            self.system_matrix,
+            self.boundary_system_matrix,
         )
         # Go back to normal block sizes.
         self._set_block_sizes(self.block_sizes)

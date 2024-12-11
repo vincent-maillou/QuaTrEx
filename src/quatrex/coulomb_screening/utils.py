@@ -186,3 +186,39 @@ def assemble_boundary_blocks(
         ),
         axis=1,
     )
+
+
+def special_obc_multiply(
+    boundary_system_matrix: DSBSparse, dsbs1: DSBSparse, dsb2: DSBSparse
+):
+    """Special case of multiply for calculating the boundary_system_matrix."""
+    # Left side
+    boundary_system_matrix.blocks[0, 0] -= (
+        dsbs1.blocks[0, 0] @ dsb2.blocks[0, 0]
+        + dsbs1.blocks[0, 1] @ dsb2.blocks[1, 0]
+        + dsbs1.blocks[1, 0] @ dsb2.blocks[0, 1]
+    )
+    boundary_system_matrix.blocks[0, 1] -= (
+        dsbs1.blocks[0, 0] @ dsb2.blocks[0, 1] + dsbs1.blocks[0, 1] @ dsb2.blocks[0, 0]
+    )
+    boundary_system_matrix.blocks[0, 2] -= dsbs1.blocks[0, 1] @ dsb2.blocks[0, 1]
+    boundary_system_matrix.blocks[1, 0] -= (
+        dsbs1.blocks[1, 0] @ dsb2.blocks[0, 0] + dsbs1.blocks[0, 0] @ dsb2.blocks[1, 0]
+    )
+    boundary_system_matrix.blocks[2, 0] -= dsbs1.blocks[1, 0] @ dsb2.blocks[1, 0]
+    # Right side
+    boundary_system_matrix.blocks[-1, -1] -= (
+        dsbs1.blocks[-1, -1] @ dsb2.blocks[-1, -1]
+        + dsbs1.blocks[-1, -2] @ dsb2.blocks[-2, -1]
+        + dsbs1.blocks[-2, -1] @ dsb2.blocks[-1, -2]
+    )
+    boundary_system_matrix.blocks[-1, -2] -= (
+        dsbs1.blocks[-1, -1] @ dsb2.blocks[-1, -2]
+        + dsbs1.blocks[-1, -2] @ dsb2.blocks[-1, -1]
+    )
+    boundary_system_matrix.blocks[-1, -3] -= dsbs1.blocks[-1, -2] @ dsb2.blocks[-1, -2]
+    boundary_system_matrix.blocks[-2, -1] -= (
+        dsbs1.blocks[-2, -1] @ dsb2.blocks[-1, -1]
+        + dsbs1.blocks[-1, -1] @ dsb2.blocks[-2, -1]
+    )
+    boundary_system_matrix.blocks[-3, -1] -= dsbs1.blocks[-2, -1] @ dsb2.blocks[-2, -1]
