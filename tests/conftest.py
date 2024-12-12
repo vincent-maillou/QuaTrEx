@@ -48,4 +48,4 @@ def electron_energies():
 @pytest.fixture
 def coulomb_screening_energies():
     electron_energies = distributed_load(input_dir / "electron_energies.npy")
-    return -(electron_energies - electron_energies[0])[::-1]
+    return electron_energies - electron_energies[0]
