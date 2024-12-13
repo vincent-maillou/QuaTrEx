@@ -66,9 +66,17 @@ class ElectronSolver(SubsystemSolver):
         super().__init__(quatrex_config, compute_config, energies)
 
         # Load the device Hamiltonian.
-        self.hamiltonian_sparray = distributed_load(
-            quatrex_config.input_dir / "hamiltonian.npz"
-        ).astype(xp.complex128)
+        try:
+            self.hamiltonian_sparray = distributed_load(
+                quatrex_config.input_dir / "hamiltonian.npz"
+            ).astype(xp.complex128)
+            self.hamiltonian_dict = None
+        except FileNotFoundError:
+            self.hamiltonian_dict = distributed_load(
+                quatrex_config.input_dir / "hamiltonian.pkl"
+            )
+            self.hamiltonian_sparray = self.hamiltonian_dict[(0, 0, 0)]
+            number_of_kpoints = quatrex_config.electron.number_of_kpoints
         self.block_sizes = distributed_load(
             quatrex_config.input_dir / "block_sizes.npy"
         )
@@ -113,8 +121,50 @@ class ElectronSolver(SubsystemSolver):
                 xp.complex128
             ),
             block_sizes=self.block_sizes,
-            global_stack_shape=self.energies.shape,
+            global_stack_shape=(self.energies.size,)
+            + tuple([k for k in number_of_kpoints if k > 1]),
         )
+
+        self.bare_system_matrix += self.overlap_sparray
+        scale_stack(
+            self.bare_system_matrix.data,
+            self.local_energies + 1j * quatrex_config.electron.eta,
+        )
+        if self.hamiltonian_dict is not None:
+            number_of_kpoints = xp.array(
+                [1 if k <= 1 else k for k in number_of_kpoints]
+            )
+            for i in range(number_of_kpoints[0]):
+                for j in range(number_of_kpoints[1]):
+                    for k in range(number_of_kpoints[2]):
+                        stack_index = tuple(
+                            [i]
+                            if number_of_kpoints[0] > 1
+                            else (
+                                [] + [j]
+                                if number_of_kpoints[1] > 1
+                                else [] + [k]
+                                if number_of_kpoints[2] > 1
+                                else []
+                            )
+                        )
+                        ik = (i - number_of_kpoints[0] // 2) / number_of_kpoints[0]
+                        jk = (j - number_of_kpoints[1] // 2) / number_of_kpoints[1]
+                        kk = (k - number_of_kpoints[2] // 2) / number_of_kpoints[2]
+                        for cell_index in self.hamiltonian_dict.keys():
+                            self.bare_system_matrix.stack[(...,) + stack_index] -= (
+                                xp.exp(
+                                    2
+                                    * xp.pi
+                                    * 1j
+                                    * (
+                                        ik * cell_index[0]
+                                        + jk * cell_index[1]
+                                        + kk * cell_index[2]
+                                    )
+                                )
+                                * self.hamiltonian_dict[cell_index]
+                            )
 
         # Load the potential.
         try:
@@ -127,9 +177,16 @@ class ElectronSolver(SubsystemSolver):
                 )
         except FileNotFoundError:
             # No potential provided. Assume zero potential.
-            self.potential = xp.zeros(
-                self.hamiltonian_sparray.shape[0], dtype=self.hamiltonian_sparray.dtype
-            )
+            if self.hamiltonian_dict is not None:
+                self.potential = xp.zeros(
+                    self.hamiltonian_sparray[(0, 0, 0)].shape[0],
+                    dtype=self.hamiltonian_sparray[(0, 0, 0)].dtype,
+                )
+            else:
+                self.potential = xp.zeros(
+                    self.hamiltonian_sparray.shape[0],
+                    dtype=self.hamiltonian_sparray.dtype,
+                )
         self.eta = quatrex_config.electron.eta
 
         # Contacts.
