@@ -95,7 +95,7 @@ def density(x: DSBSparse, overlap: sparse.spmatrix | None = None) -> NDArray:
 
         local_density.append(local_density_slice.imag)
 
-    return xp.vstack(comm.allgather(xp.hstack(local_density)))
+    return xp.vstack(comm.allgather(xp.concatenate(local_density, axis=-1)))
 
 
 def contact_currents(
