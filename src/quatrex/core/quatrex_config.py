@@ -99,6 +99,8 @@ class ElectronConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     solver: Literal["rgf", "inv"] = "rgf"
 
+    number_of_kpoints: tuple[PositiveInt, PositiveInt, PositiveInt] = (1, 1, 1)
+
     obc: OBCConfig = OBCConfig()
     lyapunov: LyapunovConfig = LyapunovConfig()
 
