@@ -212,7 +212,8 @@ class SCBA:
                 self.quatrex_config, self.compute_config, self.electron_energies
             )
             self.p_coulomb_screening = PCoulombScreening(
-                self.coulomb_screening_energies
+                self.coulomb_screening_energies,
+                self.quatrex_config.electron.number_of_kpoints,
             )
             self.coulomb_screening_solver = CoulombScreeningSolver(
                 self.quatrex_config,
@@ -459,6 +460,21 @@ class SCBA:
                 if comm.rank == 0
                 else None
             )
+            self._compute_observables()
+            if comm.rank == 0:
+                output_dir = f"{self.quatrex_config.simulation_dir}/outputs"
+                try:
+                    os.mkdir(output_dir)
+                except FileExistsError:
+                    pass
+                np.save(
+                    f"{output_dir}/electron_ldos_iter{i}.npy",
+                    self.observables.electron_ldos,
+                )
+                # np.save(f"{output_dir}/electron_density_iter{i}.npy", self.observables.electron_density)
+                # np.save(f"{output_dir}/hole_density_iter{i}.npy", self.observables.hole_density)
+                # np.save(f"{output_dir}/i_left_iter{i}.npy", self.observables.electron_current["left"])
+                # np.save(f"{output_dir}/i_right_iter{i}.npy", self.observables.electron_current["right"])
             # Swap current with previous self-energy buffer.
             times.append(time.perf_counter())
             self._swap_sigma()
@@ -549,4 +565,3 @@ class SCBA:
                 if comm.rank == 0
                 else None
             )
-            self._compute_observables()
