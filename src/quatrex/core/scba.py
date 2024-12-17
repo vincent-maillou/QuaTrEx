@@ -245,6 +245,7 @@ class SCBA:
                 self.quatrex_config,
                 self.compute_config,
                 self.electron_energies,
+                self.quatrex_config.electron.number_of_kpoints,
                 sparsity_pattern=self.data.sparsity_pattern,
             )
             # NOTE: No sparsity information required here.
@@ -263,6 +264,7 @@ class SCBA:
                 self.quatrex_config,
                 self.compute_config,
                 self.electron_energies,
+                self.quatrex_config.electron.number_of_kpoints,,
             )
 
         # ----- Photons ------------------------------------------------
