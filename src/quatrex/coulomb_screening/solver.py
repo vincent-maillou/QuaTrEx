@@ -14,6 +14,7 @@ from quatrex.core.quatrex_config import QuatrexConfig
 from quatrex.core.statistics import bose_einstein
 from quatrex.core.subsystem import SubsystemSolver
 from quatrex.core.utils import (
+    assemble_kpoint_dsb,
     compute_num_connected_blocks,
     get_periodic_superblocks,
     homogenize,
@@ -107,9 +108,17 @@ class CoulombScreeningSolver(SubsystemSolver):
         super().__init__(quatrex_config, compute_config, energies)
 
         # Load the Coulomb matrix.
-        coulomb_matrix_sparray = distributed_load(
-            quatrex_config.input_dir / "coulomb_matrix.npz"
-        ).astype(xp.complex128)
+        try:
+            coulomb_matrix_sparray = distributed_load(
+                quatrex_config.input_dir / "coulomb_matrix.npz"
+            ).astype(xp.complex128)
+            self.coulomb_matrix_dict = None
+        except FileNotFoundError:
+            self.coulomb_matrix_dict = distributed_load(
+                quatrex_config.input_dir / "coulomb_matrix.pkl"
+            )
+            self.coulomb_matrix_sparray = self.coulomb_matrix_dict[(0, 0, 0)].tocoo()
+            number_of_kpoints = quatrex_config.electron.number_of_kpoints
         # Make sure that the Coulomb matrix is Hermitian.
         coulomb_matrix_sparray = (
             0.5 * (coulomb_matrix_sparray + coulomb_matrix_sparray.conj().T).tocoo()
@@ -160,10 +169,22 @@ class CoulombScreeningSolver(SubsystemSolver):
         self.coulomb_matrix = compute_config.dsbsparse_type.from_sparray(
             sparsity_pattern.astype(xp.complex128),
             block_sizes=self.small_block_sizes,
-            global_stack_shape=(comm.size,),
+            global_stack_shape=(comm.size,)
+            + tuple([k for k in number_of_kpoints if k > 1]),
+            densify_blocks=[(i, i) for i in range(len(self.small_block_sizes))],
         )
         self.coulomb_matrix.data = 0.0
         self.coulomb_matrix += coulomb_matrix_sparray
+        if self.coulomb_matrix_dict is not None:
+            number_of_kpoints = xp.array(
+                [1 if k <= 1 else k for k in number_of_kpoints]
+            )
+            assemble_kpoint_dsb(
+                self.coulomb_matrix,
+                self.coulomb_matrix_dict,
+                number_of_kpoints,
+                -(number_of_kpoints // 2),
+            )
 
         v_times_p_sparsity_pattern = _spillover_matmul(
             sparsity_pattern, sparsity_pattern, self.small_block_sizes
@@ -172,7 +193,8 @@ class CoulombScreeningSolver(SubsystemSolver):
         self.system_matrix = compute_config.dsbsparse_type.from_sparray(
             v_times_p_sparsity_pattern.astype(xp.complex128),
             block_sizes=self.block_sizes,
-            global_stack_shape=self.energies.shape,
+            global_stack_shape=self.energies.shape
+            + tuple([k for k in number_of_kpoints if k > 1]),
         )
         self.system_matrix.data = 0.0
 
@@ -183,7 +205,8 @@ class CoulombScreeningSolver(SubsystemSolver):
         self.l_lesser = compute_config.dsbsparse_type.from_sparray(
             l_sparsity_pattern.astype(xp.complex128),
             block_sizes=self.block_sizes,
-            global_stack_shape=self.energies.shape,
+            global_stack_shape=self.energies.shape
+            + tuple([k for k in number_of_kpoints if k > 1]),
         )
         self.l_lesser.data = 0.0
 
