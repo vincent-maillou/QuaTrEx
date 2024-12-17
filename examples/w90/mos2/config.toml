@@ -2,9 +2,9 @@ simulation_dir = "examples/w90/mos2"
 
 [scba]
 max_iterations = 2
-mixing_factor = 1.0
+mixing_factor = 0.25
 phonon = false
-coulomb_screening = false
+coulomb_screening = true
 
 [electron]
 number_of_kpoints = [1, 3, 1]
@@ -14,10 +14,10 @@ solver = "rgf"
 eta = 1e-8
 
 [electron.obc]
-algorithm = "sancho-rubio" # "spectral"
+algorithm = "spectral" # "sancho-rubio"
 
-nevp_solver = "beyn"
-r_o = 10.0
+nevp_solver = "full"  # "beyn"
+r_o = 1000.0
 r_i = 0.9
 c_hat = 25
 num_quad_points = 26
@@ -31,7 +31,7 @@ convergence_tol = 1e-2
 solver = "rgf"
 
 [coulomb_screening.obc]
-algorithm = "sancho-rubio" # "spectral"
+algorithm = "spectral" # "sancho-rubio"
 block_sections = 1
 
 [phonon]

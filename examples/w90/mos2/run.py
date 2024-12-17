@@ -13,7 +13,7 @@ numba.set_num_threads(1)
 PATH = os.path.dirname(__file__)
 
 if __name__ == "__main__":
-    with threadpool_limits(limits=1):
+    with threadpool_limits(limits=4):
         config = parse_config(f"{PATH}/config.toml")
         scba = SCBA(config)
         tic = time.perf_counter()

@@ -95,7 +95,7 @@ class OBCConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     algorithm: Literal["sancho-rubio", "spectral"] = "spectral"
-    nevp_solver: Literal["beyn", "full"] = "beyn"
+    nevp_solver: Literal["beyn", "full"] = "full"
 
     # Parameters for spectral OBC algorithms.
     block_sections: PositiveInt = 1
