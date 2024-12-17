@@ -1,6 +1,6 @@
 from qttools import xp
+from qttools.kernels.numba.dsbcoo import compute_block_sort_index
 from qttools.utils.mpi_utils import distributed_load
-from qttools.utils.sparse_utils import compute_block_sort_index
 
 from quatrex.coulomb_screening import PCoulombScreening
 

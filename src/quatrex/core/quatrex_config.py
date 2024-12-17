@@ -60,7 +60,7 @@ class OBCConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     algorithm: Literal["sancho-rubio", "spectral"] = "spectral"
-    nevp_solver: Literal["beyn", "full"] = "beyn"
+    nevp_solver: Literal["beyn", "full"] = "full"
 
     # Parameters for spectral OBC algorithms.
     block_sections: PositiveInt = 1
@@ -74,10 +74,10 @@ class OBCConfig(BaseModel):
     convergence_tol: PositiveFloat = 1e-7
 
     # Parameters for subspace NEVP solvers.
-    r_o: PositiveFloat = 10.0
+    r_o: PositiveFloat = 1000.0
     r_i: PositiveFloat = 0.9
-    c_hat: PositiveInt = 10
-    num_quad_points: PositiveInt = 20
+    c_hat: PositiveInt = 26
+    num_quad_points: PositiveInt = 26
 
     # Parameters for reusing surface Green's functions from previous
     # SCBA iterations.
@@ -86,7 +86,7 @@ class OBCConfig(BaseModel):
 
 class LyapunovConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    algorithm: Literal["spectral", "doubling", "vectorize"] = "spectral"
+    algorithm: Literal["spectral", "doubling", "vectorize"] = "doubling"
 
     # Parameters for iterative Lyapunov algorithms.
     max_iterations: PositiveInt = 1000
