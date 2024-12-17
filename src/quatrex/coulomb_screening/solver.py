@@ -12,6 +12,7 @@ from quatrex.core.compute_config import ComputeConfig
 from quatrex.core.quatrex_config import QuatrexConfig
 from quatrex.core.statistics import bose_einstein
 from quatrex.core.subsystem import SubsystemSolver
+from quatrex.core.utils import assemble_kpoint_dsb
 from quatrex.coulomb_screening.utils import assemble_boundary_blocks
 
 # from qttools.utils.stack_utils import scale_stack
@@ -99,9 +100,17 @@ class CoulombScreeningSolver(SubsystemSolver):
         super().__init__(quatrex_config, compute_config, energies)
 
         # Load the Coulomb matrix.
-        self.coulomb_matrix_sparray = distributed_load(
-            quatrex_config.input_dir / "coulomb_matrix.npz"
-        ).astype(xp.complex128)
+        try:
+            self.coulomb_matrix_sparray = distributed_load(
+                quatrex_config.input_dir / "coulomb_matrix.npz"
+            ).astype(xp.complex128)
+            self.coulomb_matrix_dict = None
+        except FileNotFoundError:
+            self.coulomb_matrix_dict = distributed_load(
+                quatrex_config.input_dir / "coulomb_matrix.pkl"
+            )
+            self.coulomb_matrix_sparray = self.coulomb_matrix_dict[(0, 0, 0)].tocoo()
+            number_of_kpoints = quatrex_config.electron.number_of_kpoints
 
         # Load block sizes.
         self.small_block_sizes = distributed_load(
@@ -129,9 +138,21 @@ class CoulombScreeningSolver(SubsystemSolver):
         self.coulomb_matrix = compute_config.dbsparse_type.from_sparray(
             self.coulomb_matrix_sparray,
             block_sizes=self.small_block_sizes,
-            global_stack_shape=(self.energies.size,),
+            global_stack_shape=(self.energies.size,)
+            + tuple([k for k in number_of_kpoints if k > 1]),
             densify_blocks=[(i, i) for i in range(len(self.small_block_sizes))],
         )
+        if self.coulomb_matrix_dict is not None:
+            number_of_kpoints = xp.array(
+                [1 if k <= 1 else k for k in number_of_kpoints]
+            )
+            assemble_kpoint_dsb(
+                self.coulomb_matrix,
+                self.coulomb_matrix_dict,
+                number_of_kpoints,
+                -(number_of_kpoints // 2),
+            )
+
         # Create a dummy identity matrix.
         dummy_identity_data = xp.ones_like(self.coulomb_matrix_sparray.data) * 1e-16
         dummy_identity_data[
@@ -146,13 +167,19 @@ class CoulombScreeningSolver(SubsystemSolver):
         self.dummy_identity = compute_config.dbsparse_type.from_sparray(
             dummy_identity_sparray,
             block_sizes=self.small_block_sizes,
-            global_stack_shape=(self.energies.size,),
+            global_stack_shape=(self.energies.size,)
+            + tuple([k for k in number_of_kpoints if k > 1]),
             densify_blocks=[(i, i) for i in range(len(self.small_block_sizes))],
         )
         # Load the device Hamiltonian for finding new sparsity pattern
-        dummy_hamiltonian = distributed_load(
-            quatrex_config.input_dir / "hamiltonian.npz"
-        )
+        try:
+            dummy_hamiltonian = distributed_load(
+                quatrex_config.input_dir / "hamiltonian.npz"
+            )
+        except FileNotFoundError:
+            dummy_hamiltonian = distributed_load(
+                quatrex_config.input_dir / "hamiltonian.pkl"
+            )[(0, 0, 0)].tocoo()
         # Compute new sparsity pattern
         rows, cols = product_sparsity_pattern(
             sparse.csr_matrix(
@@ -201,7 +228,8 @@ class CoulombScreeningSolver(SubsystemSolver):
                 shape=(self.overlap_sparray.size, self.overlap_sparray.size),
             ),
             block_sizes=self.block_sizes,
-            global_stack_shape=(self.energies.size,),
+            global_stack_shape=(self.energies.size,)
+            + tuple([k for k in number_of_kpoints if k > 1]),
             densify_blocks=[(i, i) for i in range(len(self.block_sizes))],
         )
         # Add the overlap matrix to the bare system matrix.
@@ -247,7 +275,8 @@ class CoulombScreeningSolver(SubsystemSolver):
                 shape=(self.overlap_sparray.size, self.overlap_sparray.size),
             ),
             block_sizes=self.block_sizes,
-            global_stack_shape=(self.energies.size,),
+            global_stack_shape=(self.energies.size,)
+            + tuple([k for k in number_of_kpoints if k > 1]),
             densify_blocks=[(i, i) for i in range(len(self.block_sizes))],
         )
         # Allocate memory for the L_lesser and L_greater matrices.
