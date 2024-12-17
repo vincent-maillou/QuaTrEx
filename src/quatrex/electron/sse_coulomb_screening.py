@@ -10,22 +10,44 @@ from scipy import sparse
 from quatrex.core.compute_config import ComputeConfig
 from quatrex.core.quatrex_config import QuatrexConfig
 from quatrex.core.sse import ScatteringSelfEnergy
+from quatrex.core.utils import assemble_kpoint_dsb
 
 
 def fft_convolve(a: xp.ndarray, b: xp.ndarray) -> xp.ndarray:
     """Computes the convolution of two arrays using the FFT."""
-    n = a.shape[0] + b.shape[0] - 1
-    a_fft = xp.fft.fftn(a, (n,), axes=(0,))
-    b_fft = xp.fft.fftn(b, (n,), axes=(0,))
+    ne = a.shape[0] + b.shape[0] - 1
+    a_fft = xp.fft.fftn(a, (ne,), axes=(0,))
+    b_fft = xp.fft.fftn(b, (ne,), axes=(0,))
     return xp.fft.ifftn(a_fft * b_fft, axes=(0,))
 
 
-def fft_correlate(a: xp.ndarray, b: xp.ndarray) -> xp.ndarray:
+def fft_convolve_kpoints(a: xp.ndarray, b: xp.ndarray) -> xp.ndarray:
+    """Computes the convolution of two arrays using the FFT."""
+    ne = a.shape[0] + b.shape[0] - 1
+    nka = a.shape[1:-1]
+    nkb = b.shape[1:-1]
+    a_fft = xp.fft.fftn(a, (ne,) + nka, axes=(0,) + tuple(range(1, len(nka) + 1)))
+    b_fft = xp.fft.fftn(b, (ne,) + nkb, axes=(0,) + tuple(range(1, len(nkb) + 1)))
+    return xp.fft.ifftn(a_fft * b_fft, axes=(0,) + tuple(range(1, len(nka) + 1)))
+
+
+def fft_correlate_kpoints(a: xp.ndarray, b: xp.ndarray) -> xp.ndarray:
     """Computes the correlation of two arrays using the FFT."""
-    n = a.shape[0] + b.shape[0] - 1
-    a_fft = xp.fft.fftn(a, (n,), axes=(0,))
-    b_fft = xp.fft.fftn(b[::-1], (n,), axes=(0,))
-    return xp.fft.ifftn(a_fft * b_fft, axes=(0,))
+    ne = a.shape[0] + b.shape[0] - 1
+    nka = a.shape[1:-1]
+    nkb = b.shape[1:-1]
+    a_fft = xp.fft.fftn(a, (ne,) + nka, axes=(0,) + tuple(range(1, len(nka) + 1)))
+    b_fft = xp.fft.fftn(
+        xp.flip(b, axis=(0,) + tuple(range(1, len(nkb) + 1))),
+        (ne,) + nkb,
+        axes=(0,) + tuple(range(1, len(nkb) + 1)),
+    )
+    # Don't really know why I have to roll the result, but it works.
+    return xp.roll(
+        xp.fft.ifftn(a_fft * b_fft, axes=(0,) + tuple(range(1, len(nka) + 1))),
+        shift=1,
+        axis=tuple(range(1, len(nka) + 1)),
+    )
 
 
 def hilbert_transform(a: xp.ndarray, energies: xp.ndarray, eta=1e-8) -> xp.ndarray:
@@ -48,7 +70,7 @@ def hilbert_transform(a: xp.ndarray, energies: xp.ndarray, eta=1e-8) -> xp.ndarr
         The Hilbert transform of a.
     """
     # Add a small imaginary part to avoid singularity.
-    energy_differences = (energies - energies[0]).reshape(-1, 1)
+    energy_differences = xp.expand_dims(energies - energies[0], tuple(range(1, a.ndim)))
     ne = energies.size
     # eta for removing the singularity. See Cauchy principal value.
     b = (
@@ -65,19 +87,31 @@ class SigmaCoulombScreening(ScatteringSelfEnergy):
         quatrex_config: QuatrexConfig,
         compute_config: ComputeConfig,
         electron_energies: xp.ndarray,
+        number_of_kpoints: tuple[int, ...],
     ):
         self.energies = electron_energies
         self.ne = self.energies.size
-        self.prefactor = 1j / (2 * np.pi) * (self.energies[1] - self.energies[0])
-        # Load the Hamiltonian and block sizes for sparsity pattern.
-        hamiltonian_sparray = distributed_load(
-            quatrex_config.input_dir / "hamiltonian.npz"
+        self.prefactor = (
+            1j
+            / (2 * np.pi)
+            * (self.energies[1] - self.energies[0])
+            / np.prod(number_of_kpoints)
         )
+        # TODO: rows and cols should be calculated from interaction range.
+        # Load the Hamiltonian and block sizes for sparsity pattern.
+        try:
+            hamiltonian_sparray = distributed_load(
+                quatrex_config.input_dir / "hamiltonian.npz"
+            )
+        except FileNotFoundError:
+            hamiltonian_sparray = distributed_load(
+                quatrex_config.input_dir / "hamiltonian.pkl"
+            )[(0, 0, 0)]
         block_sizes = distributed_load(quatrex_config.input_dir / "block_sizes.npy")
         self.w_lesser_reduced = compute_config.dbsparse_type.from_sparray(
             hamiltonian_sparray,
             block_sizes,
-            (self.ne,),
+            (self.ne,) + tuple([k for k in number_of_kpoints if k > 1]),
             densify_blocks=[(i, i) for i in range(len(block_sizes))],
         )
         self.w_greater_reduced = compute_config.dbsparse_type.zeros_like(
@@ -125,8 +159,8 @@ class SigmaCoulombScreening(ScatteringSelfEnergy):
             ...,
             : sigma_lesser.nnz_section_sizes[comm.rank],
         ] += self.prefactor * (
-            fft_convolve(g_lesser.data, self.w_lesser_reduced.data)[: self.ne]
-            - fft_correlate(g_lesser.data, self.w_greater_reduced.data.conj())[
+            fft_convolve_kpoints(g_lesser.data, self.w_lesser_reduced.data)[: self.ne]
+            - fft_correlate_kpoints(g_lesser.data, self.w_greater_reduced.data.conj())[
                 self.ne - 1 :
             ]
         )
@@ -135,8 +169,8 @@ class SigmaCoulombScreening(ScatteringSelfEnergy):
             ...,
             : sigma_greater.nnz_section_sizes[comm.rank],
         ] += self.prefactor * (
-            fft_convolve(g_greater.data, self.w_greater_reduced.data)[: self.ne]
-            - fft_correlate(g_greater.data, self.w_lesser_reduced.data.conj())[
+            fft_convolve_kpoints(g_greater.data, self.w_greater_reduced.data)[: self.ne]
+            - fft_correlate_kpoints(g_greater.data, self.w_lesser_reduced.data.conj())[
                 self.ne - 1 :
             ]
         )
@@ -171,18 +205,38 @@ class SigmaFock(ScatteringSelfEnergy):
         quatrex_config: QuatrexConfig,
         compute_config: ComputeConfig,
         electron_energies: xp.ndarray,
+        number_of_kpoints: tuple[int, ...],
     ):
         self.energies = electron_energies
-        self.prefactor = 1j / (2 * xp.pi) * (self.energies[1] - self.energies[0])
-        coulomb_matrix_sparray = distributed_load(
-            quatrex_config.input_dir / "coulomb_matrix.npz"
-        ).astype(xp.complex128)
+        self.prefactor = (
+            1j
+            / (2 * xp.pi)
+            * (self.energies[1] - self.energies[0])
+            / xp.prod(number_of_kpoints)
+        )
+        try:
+            coulomb_matrix_sparray = distributed_load(
+                quatrex_config.input_dir / "coulomb_matrix.npz"
+            ).astype(xp.complex128)
+            coulomb_matrix_dict = None
+        except FileNotFoundError:
+            coulomb_matrix_dict = distributed_load(
+                quatrex_config.input_dir / "coulomb_matrix.pkl"
+            )
+            coulomb_matrix_sparray = coulomb_matrix_dict[(0, 0, 0)]
+        number_of_kpoints = quatrex_config.electron.number_of_kpoints
         # Load block sizes for the coulomb matrix.
         block_sizes = distributed_load(quatrex_config.input_dir / "block_sizes.npy")
+        # TODO: rows and cols should be calculated from interaction range.
         # Load the Hamiltonian to get the correct sparsity pattern.
-        hamiltonian_sparray = distributed_load(
-            quatrex_config.input_dir / "hamiltonian.npz"
-        )
+        try:
+            hamiltonian_sparray = distributed_load(
+                quatrex_config.input_dir / "hamiltonian.npz"
+            )
+        except FileNotFoundError:
+            hamiltonian_sparray = distributed_load(
+                quatrex_config.input_dir / "hamiltonian.pkl"
+            )[(0, 0, 0)].tocoo()
         # Create the DSBSparse object.
         self.coulomb_matrix = compute_config.dbsparse_type.from_sparray(
             sparse.coo_matrix(
@@ -196,9 +250,19 @@ class SigmaFock(ScatteringSelfEnergy):
                 )
             ),
             block_sizes,
-            (self.energies.size,),
+            (self.energies.size,) + tuple([k for k in number_of_kpoints if k > 1]),
             densify_blocks=[(i, i) for i in range(len(block_sizes))],
         )
+        if coulomb_matrix_dict is not None:
+            number_of_kpoints = xp.array(
+                [1 if k <= 1 else k for k in number_of_kpoints]
+            )
+            assemble_kpoint_dsb(
+                self.coulomb_matrix,
+                coulomb_matrix_dict,
+                number_of_kpoints,
+                -(number_of_kpoints // 2),
+            )
 
     def compute(
         self,

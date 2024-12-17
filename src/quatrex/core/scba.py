@@ -209,7 +209,10 @@ class SCBA:
                 self.coulomb_screening_energies += 1e-6
 
             self.sigma_fock = SigmaFock(
-                self.quatrex_config, self.compute_config, self.electron_energies
+                self.quatrex_config,
+                self.compute_config,
+                self.electron_energies,
+                self.quatrex_config.electron.number_of_kpoints,
             )
             self.p_coulomb_screening = PCoulombScreening(
                 self.coulomb_screening_energies,
@@ -221,7 +224,10 @@ class SCBA:
                 self.coulomb_screening_energies,
             )
             self.sigma_coulomb_screening = SigmaCoulombScreening(
-                self.quatrex_config, self.compute_config, self.electron_energies
+                self.quatrex_config,
+                self.compute_config,
+                self.electron_energies,
+                self.quatrex_config.electron.number_of_kpoints,
             )
 
         # ----- Photons ------------------------------------------------
