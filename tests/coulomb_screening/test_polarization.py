@@ -22,13 +22,15 @@ def _block_canonicalize(rows, cols, block_sizes):
     return inds_bcoo2bcoo
 
 
-def test_compute(datadir, compute_config, block_sizes, coulomb_screening_energies):
+def test_compute(
+    datadir, compute_config, block_sizes, coulomb_screening_energies, iteration
+):
     """Test the computation of the polarization."""
     # Load the data
-    gl_data = distributed_load(datadir.joinpath("gl_data_iter0.npy"))
-    gg_data = distributed_load(datadir.joinpath("gg_data_iter0.npy"))
-    pl_data = distributed_load(datadir.joinpath("pl_data_iter0.npy"))
-    pg_data = distributed_load(datadir.joinpath("pg_data_iter0.npy"))
+    gl_data = distributed_load(datadir.joinpath(f"gl_data_iter{iteration}.npy"))
+    gg_data = distributed_load(datadir.joinpath(f"gg_data_iter{iteration}.npy"))
+    pl_data = distributed_load(datadir.joinpath(f"pl_data_iter{iteration}.npy"))
+    pg_data = distributed_load(datadir.joinpath(f"pg_data_iter{iteration}.npy"))
     rows = distributed_load(datadir.joinpath("rows.npy"))
     cols = distributed_load(datadir.joinpath("columns.npy"))
     reordering = _block_canonicalize(rows, cols, block_sizes)

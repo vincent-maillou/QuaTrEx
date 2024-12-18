@@ -23,15 +23,20 @@ def _block_canonicalize(rows, cols, block_sizes):
 
 
 def test_solve(
-    datadir, quatrex_config, compute_config, block_sizes, coulomb_screening_energies
+    datadir,
+    quatrex_config,
+    compute_config,
+    block_sizes,
+    coulomb_screening_energies,
+    iteration,
 ):
     """Test the computation of the polarization."""
     # Load the data
-    pl_data = distributed_load(datadir.joinpath("pl_data_iter0.npy"))
-    pg_data = distributed_load(datadir.joinpath("pg_data_iter0.npy"))
+    pl_data = distributed_load(datadir.joinpath(f"pl_data_iter{iteration}.npy"))
+    pg_data = distributed_load(datadir.joinpath(f"pg_data_iter{iteration}.npy"))
     # TODO: Also load data for p_retarded
-    wl_data = distributed_load(datadir.joinpath("wl_data_iter0.npy"))
-    wg_data = distributed_load(datadir.joinpath("wg_data_iter0.npy"))
+    wl_data = distributed_load(datadir.joinpath(f"wl_data_iter{iteration}.npy"))
+    wg_data = distributed_load(datadir.joinpath(f"wg_data_iter{iteration}.npy"))
     rows = distributed_load(datadir.joinpath("rows.npy"))
     cols = distributed_load(datadir.joinpath("columns.npy"))
     reordering = _block_canonicalize(rows, cols, block_sizes)

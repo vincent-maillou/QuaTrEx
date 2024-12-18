@@ -23,17 +23,17 @@ def _block_canonicalize(rows, cols, block_sizes):
 
 
 def test_compute(
-    datadir, quatrex_config, compute_config, block_sizes, electron_energies
+    datadir, quatrex_config, compute_config, block_sizes, electron_energies, iteration
 ):
     """Test the computation of the polarization."""
     # Load the data
-    gl_data = distributed_load(datadir.joinpath("gl_data_iter0.npy"))
-    gg_data = distributed_load(datadir.joinpath("gg_data_iter0.npy"))
-    wl_data = distributed_load(datadir.joinpath("wl_data_iter0.npy"))
-    wg_data = distributed_load(datadir.joinpath("wg_data_iter0.npy"))
-    sl_data = distributed_load(datadir.joinpath("sl_data_iter0.npy"))
-    sg_data = distributed_load(datadir.joinpath("sg_data_iter0.npy"))
-    sr_data = distributed_load(datadir.joinpath("sr_data_iter0.npy"))
+    gl_data = distributed_load(datadir.joinpath(f"gl_data_iter{iteration}.npy"))
+    gg_data = distributed_load(datadir.joinpath(f"gg_data_iter{iteration}.npy"))
+    wl_data = distributed_load(datadir.joinpath(f"wl_data_iter{iteration}.npy"))
+    wg_data = distributed_load(datadir.joinpath(f"wg_data_iter{iteration}.npy"))
+    sl_data = distributed_load(datadir.joinpath(f"sl_data_iter{iteration}.npy"))
+    sg_data = distributed_load(datadir.joinpath(f"sg_data_iter{iteration}.npy"))
+    sr_data = distributed_load(datadir.joinpath(f"sr_data_iter{iteration}.npy"))
     rows = distributed_load(datadir.joinpath("rows.npy"))
     cols = distributed_load(datadir.joinpath("columns.npy"))
     reordering = _block_canonicalize(rows, cols, block_sizes)
