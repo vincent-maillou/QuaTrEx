@@ -96,4 +96,4 @@ def test_compute(
     # Compare the results
     assert xp.allclose(s_lesser.data, s_lesser_expected.data)
     assert xp.allclose(s_greater.data, s_greater_expected.data)
-    assert xp.allclose(s_retarded.data, s_retarded_expected.data, atol=1e-3)
+    assert xp.allclose(s_retarded.data, s_retarded_expected.data)
