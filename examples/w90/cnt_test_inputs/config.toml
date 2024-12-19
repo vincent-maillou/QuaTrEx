@@ -1,0 +1,39 @@
+simulation_dir = "/home/awinka/Python/new_quatrex/quatrex/examples/w90/cnt_test_inputs/"
+
+[scba]
+max_iterations = 3
+mixing_factor = 0.25
+phonon = false
+coulomb_screening = true
+
+[electron]
+left_fermi_level = -3.85 # eV
+right_fermi_level = -3.85 # eV
+solver = "rgf"
+eta = 1e-12
+
+[electron.obc]
+algorithm = "spectral" # "spectral"
+nevp_solver = "full"
+r_o = 1000.0
+r_i = 0.9
+c_hat = 25
+num_quad_points = 26
+
+[electron.obc.memoizer]
+enable = true
+num_ref_iterations = 4
+convergence_tol = 1e-2
+
+[coulomb_screening]
+solver = "rgf"
+
+[coulomb_screening.obc]
+algorithm = "spectral" # "spectral"
+nevp_solver = "full"
+block_sections = 1
+
+[phonon]
+model = "pseudo-scattering"
+phonon_energy = 40e-4         # eV
+deformation_potential = 25e-3 # eV

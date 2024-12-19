@@ -44,6 +44,25 @@ def _get_allocator(dsbsparse_type: DSBSparse, system_matrix: DSBSparse) -> DSBSp
     return _allocator
 
 
+def _skew_hermitian(dsbsparse: DSBSparse) -> None:
+    """Returns the skew-Hermitian part of the DSBSparse matrix.
+
+    Parameters
+    ----------
+    dsbsparse : DSBSparse
+        The DSBSparse matrix to symmetrize.
+
+    Returns
+    -------
+    DSBSparse
+        The symmetrized DSBSparse matrix.
+
+    """
+    dsbsparse.data[:] = 0.5 * (
+        dsbsparse.data - dsbsparse.ltranspose(copy=True).data.conj()
+    )
+
+
 class SCBAData:
     """Data container class for the SCBA.
 
@@ -362,17 +381,8 @@ class SCBA:
         """Computes the Coulomb screening interaction."""
         times = []
         times.append(time.perf_counter())
-        self.sigma_fock.compute(
-            self.data.g_lesser,
-            out=(self.data.sigma_retarded,),
-        )
-        t_fock = time.perf_counter() - times.pop()
-        (
-            print(f"Time for Fock self-energy: {t_fock:.2f} s", flush=True)
-            if comm.rank == 0
-            else None
-        )
-        times.append(time.perf_counter())
+        _skew_hermitian(self.data.sigma_lesser)
+        _skew_hermitian(self.data.sigma_greater)
         self.p_coulomb_screening.compute(
             self.data.g_lesser,
             self.data.g_greater,
@@ -398,6 +408,8 @@ class SCBA:
             else None
         )
         times.append(time.perf_counter())
+        _skew_hermitian(self.data.w_lesser)
+        _skew_hermitian(self.data.w_greater)
         self.sigma_coulomb_screening.compute(
             self.data.g_lesser,
             self.data.g_greater,
@@ -414,6 +426,17 @@ class SCBA:
             print(
                 f"Time for Coulomb screening self-energy: {t_sigma:.2f} s", flush=True
             )
+            if comm.rank == 0
+            else None
+        )
+        times.append(time.perf_counter())
+        self.sigma_fock.compute(
+            self.data.g_lesser,
+            out=(self.data.sigma_retarded,),
+        )
+        t_fock = time.perf_counter() - times.pop()
+        (
+            print(f"Time for Fock self-energy: {t_fock:.2f} s", flush=True)
             if comm.rank == 0
             else None
         )
@@ -459,6 +482,21 @@ class SCBA:
                 if comm.rank == 0
                 else None
             )
+            self._compute_observables()
+            if comm.rank == 0:
+                output_dir = f"{self.quatrex_config.simulation_dir}/outputs"
+                try:
+                    os.mkdir(output_dir)
+                except FileExistsError:
+                    pass
+                np.save(
+                    f"{output_dir}/electron_ldos_iter{i}.npy",
+                    self.observables.electron_ldos,
+                )
+                # np.save(f"{output_dir}/electron_density_iter{i}.npy", self.observables.electron_density)
+                # np.save(f"{output_dir}/hole_density_iter{i}.npy", self.observables.hole_density)
+                # np.save(f"{output_dir}/i_left_iter{i}.npy", self.observables.electron_current["left"])
+                # np.save(f"{output_dir}/i_right_iter{i}.npy", self.observables.electron_current["right"])
             # Swap current with previous self-energy buffer.
             times.append(time.perf_counter())
             self._swap_sigma()

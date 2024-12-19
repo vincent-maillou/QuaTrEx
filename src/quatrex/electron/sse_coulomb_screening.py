@@ -142,7 +142,7 @@ class SigmaCoulombScreening(ScatteringSelfEnergy):
         )
 
         # Compute retarded self-energy with a Hilbert transform.
-        sigma_antihermitian = sigma_greater.data - sigma_lesser.data
+        sigma_antihermitian = 1j * xp.imag(sigma_greater.data - sigma_lesser.data)
         sigma_hermitian = hilbert_transform(sigma_antihermitian, self.energies)
         sigma_retarded._data[
             sigma_retarded._stack_padding_mask,
@@ -211,12 +211,6 @@ class SigmaFock(ScatteringSelfEnergy):
             m.dtranspose() if m.distribution_state != "nnz" else None
         # Compute the electron density by summing over energies.
         gl_density = self.prefactor * g_lesser.data.sum(axis=0)
-        sigma_retarded._data[
-            sigma_retarded._stack_padding_mask,
-            ...,
-            : sigma_retarded.nnz_section_sizes[comm.rank],
-        ] += (
-            gl_density * self.coulomb_matrix.data
-        )
+        sigma_retarded.data += xp.real(gl_density * self.coulomb_matrix.data)
         for m in (g_lesser, sigma_retarded, self.coulomb_matrix):
             m.dtranspose() if m.distribution_state != "stack" else None
