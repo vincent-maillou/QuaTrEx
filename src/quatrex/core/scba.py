@@ -239,13 +239,12 @@ class SCBA:
                     self.electron_energies - self.electron_energies[0]
                 )
                 # Remove the zero energy to avoid division by zero.
-                self.coulomb_screening_energies += 1e-6
+                self.coulomb_screening_energies += 1e-8
 
             self.sigma_fock = SigmaFock(
                 self.quatrex_config,
                 self.compute_config,
                 self.electron_energies,
-                self.quatrex_config.electron.number_of_kpoints,
                 sparsity_pattern=self.data.sparsity_pattern,
             )
             # NOTE: No sparsity information required here.
@@ -264,7 +263,6 @@ class SCBA:
                 self.quatrex_config,
                 self.compute_config,
                 self.electron_energies,
-                self.quatrex_config.electron.number_of_kpoints,,
             )
 
         # ----- Photons ------------------------------------------------

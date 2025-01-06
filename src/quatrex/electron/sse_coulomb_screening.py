@@ -99,7 +99,6 @@ def hilbert_transform(a: NDArray, energies: NDArray, eta=1e-8) -> NDArray:
          The Hilbert transform of a.
 
     """
-    # Add a small imaginary part to avoid singularity.
     energy_differences = xp.expand_dims(energies - energies[0], tuple(range(1, a.ndim)))
     ne = energies.size
     # eta for removing the singularity. See Cauchy principal value.
@@ -130,10 +129,10 @@ class SigmaCoulombScreening(ScatteringSelfEnergy):
         quatrex_config: QuatrexConfig,
         compute_config: ComputeConfig,
         electron_energies: NDArray,
-        number_of_kpoints: tuple[int, ...],
     ):
         """Initializes the scattering self-energy."""
         self.energies = electron_energies
+        number_of_kpoints = quatrex_config.electron.number_of_kpoints
         self.num_energies = self.energies.size
         self.prefactor = (
             1j
@@ -265,11 +264,11 @@ class SigmaFock(ScatteringSelfEnergy):
         quatrex_config: QuatrexConfig,
         compute_config: ComputeConfig,
         electron_energies: NDArray,
-        number_of_kpoints: tuple[int, ...],
         sparsity_pattern: sparse.coo_matrix,
     ):
         """Initializes the bare Fock self-energy."""
         self.energies = electron_energies
+        number_of_kpoints = quatrex_config.electron.number_of_kpoints
         self.prefactor = (
             1j
             / (2 * xp.pi)
@@ -286,7 +285,6 @@ class SigmaFock(ScatteringSelfEnergy):
                 quatrex_config.input_dir / "coulomb_matrix.pkl"
             )
             coulomb_matrix_sparray = coulomb_matrix_dict[(0, 0, 0)]
-        number_of_kpoints = quatrex_config.electron.number_of_kpoints
         # Make sure that the Coulomb matrix is Hermitian.
         coulomb_matrix_sparray = (
             0.5 * (coulomb_matrix_sparray + coulomb_matrix_sparray.conj().T)
@@ -301,7 +299,8 @@ class SigmaFock(ScatteringSelfEnergy):
         coulomb_matrix = compute_config.dsbsparse_type.from_sparray(
             sparsity_pattern.astype(xp.complex128),
             block_sizes=block_sizes,
-            global_stack_shape=(comm.size,),
+            global_stack_shape=(comm.size,)
+            + tuple([k for k in number_of_kpoints if k > 1]),
         )
         coulomb_matrix.data = 0.0
         coulomb_matrix += coulomb_matrix_sparray
