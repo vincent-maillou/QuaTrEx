@@ -12,7 +12,7 @@ PATH = os.path.dirname(__file__)
 
 if __name__ == "__main__":
     with threadpool_limits(limits=1):
-        config = parse_config(f"{PATH}/config.toml")
+        config = parse_config(os.path.join(PATH, "config.toml"))
         scba = SCBA(config)
         tic = time.perf_counter()
         scba.run()
