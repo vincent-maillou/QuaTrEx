@@ -69,7 +69,6 @@ def hilbert_transform(a: xp.ndarray, energies: xp.ndarray, eta=1e-8) -> xp.ndarr
     xp.ndarray
         The Hilbert transform of a.
     """
-    # Add a small imaginary part to avoid singularity.
     energy_differences = xp.expand_dims(energies - energies[0], tuple(range(1, a.ndim)))
     ne = energies.size
     # eta for removing the singularity. See Cauchy principal value.
@@ -87,9 +86,9 @@ class SigmaCoulombScreening(ScatteringSelfEnergy):
         quatrex_config: QuatrexConfig,
         compute_config: ComputeConfig,
         electron_energies: xp.ndarray,
-        number_of_kpoints: tuple[int, ...],
     ):
         self.energies = electron_energies
+        number_of_kpoints = quatrex_config.electron.number_of_kpoints
         self.ne = self.energies.size
         self.prefactor = (
             1j
@@ -205,9 +204,9 @@ class SigmaFock(ScatteringSelfEnergy):
         quatrex_config: QuatrexConfig,
         compute_config: ComputeConfig,
         electron_energies: xp.ndarray,
-        number_of_kpoints: tuple[int, ...],
     ):
         self.energies = electron_energies
+        number_of_kpoints = quatrex_config.electron.number_of_kpoints
         self.prefactor = (
             1j
             / (2 * xp.pi)
@@ -224,7 +223,6 @@ class SigmaFock(ScatteringSelfEnergy):
                 quatrex_config.input_dir / "coulomb_matrix.pkl"
             )
             coulomb_matrix_sparray = coulomb_matrix_dict[(0, 0, 0)]
-        number_of_kpoints = quatrex_config.electron.number_of_kpoints
         # Load block sizes for the coulomb matrix.
         block_sizes = distributed_load(quatrex_config.input_dir / "block_sizes.npy")
         # TODO: rows and cols should be calculated from interaction range.
