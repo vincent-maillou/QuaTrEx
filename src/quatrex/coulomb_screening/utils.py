@@ -20,7 +20,7 @@ def assemble_boundary_blocks(
                     mat.blocks[0, 1],
                     mat.blocks[0, 2],
                 ),
-                axis=2,
+                axis=-1,
             ),
             xp.concatenate(
                 (
@@ -28,7 +28,7 @@ def assemble_boundary_blocks(
                     mat.blocks[0, 0],
                     mat.blocks[0, 1],
                 ),
-                axis=2,
+                axis=-1,
             ),
             xp.concatenate(
                 (
@@ -36,10 +36,10 @@ def assemble_boundary_blocks(
                     mat.blocks[1, 0],
                     mat.blocks[0, 0],
                 ),
-                axis=2,
+                axis=-1,
             ),
         ),
-        axis=1,
+        axis=-2,
     )
     right[:] = xp.concatenate(
         (
@@ -49,7 +49,7 @@ def assemble_boundary_blocks(
                     xp.zeros_like(mat.blocks[0, 3]),
                     xp.zeros_like(mat.blocks[0, 3]),
                 ),
-                axis=2,
+                axis=-1,
             ),
             xp.concatenate(
                 (
@@ -57,7 +57,7 @@ def assemble_boundary_blocks(
                     mat.blocks[0, 3],
                     xp.zeros_like(mat.blocks[0, 2]),
                 ),
-                axis=2,
+                axis=-1,
             ),
             xp.concatenate(
                 (
@@ -65,10 +65,10 @@ def assemble_boundary_blocks(
                     mat.blocks[0, 2],
                     mat.blocks[0, 3],
                 ),
-                axis=2,
+                axis=-1,
             ),
         ),
-        axis=1,
+        axis=-2,
     )
     below[:] = xp.concatenate(
         (
@@ -78,7 +78,7 @@ def assemble_boundary_blocks(
                     xp.zeros_like(mat.blocks[3, 0]),
                     xp.zeros_like(mat.blocks[3, 0]),
                 ),
-                axis=1,
+                axis=-2,
             ),
             xp.concatenate(
                 (
@@ -86,7 +86,7 @@ def assemble_boundary_blocks(
                     mat.blocks[3, 0],
                     xp.zeros_like(mat.blocks[2, 0]),
                 ),
-                axis=1,
+                axis=-2,
             ),
             xp.concatenate(
                 (
@@ -94,10 +94,10 @@ def assemble_boundary_blocks(
                     mat.blocks[2, 0],
                     mat.blocks[3, 0],
                 ),
-                axis=1,
+                axis=-2,
             ),
         ),
-        axis=2,
+        axis=-1,
     )
     diag_right[:] = xp.concatenate(
         (
@@ -107,7 +107,7 @@ def assemble_boundary_blocks(
                     mat.blocks[-2, -1],
                     mat.blocks[-3, -1],
                 ),
-                axis=2,
+                axis=-1,
             ),
             xp.concatenate(
                 (
@@ -115,7 +115,7 @@ def assemble_boundary_blocks(
                     mat.blocks[-1, -1],
                     mat.blocks[-2, -1],
                 ),
-                axis=2,
+                axis=-1,
             ),
             xp.concatenate(
                 (
@@ -123,10 +123,10 @@ def assemble_boundary_blocks(
                     mat.blocks[-1, -2],
                     mat.blocks[-1, -1],
                 ),
-                axis=2,
+                axis=-1,
             ),
         ),
-        axis=1,
+        axis=-2,
     )
     above[:] = xp.concatenate(
         (
@@ -136,7 +136,7 @@ def assemble_boundary_blocks(
                     xp.zeros_like(mat.blocks[-4, -1]),
                     xp.zeros_like(mat.blocks[-4, -1]),
                 ),
-                axis=2,
+                axis=-1,
             ),
             xp.concatenate(
                 (
@@ -144,7 +144,7 @@ def assemble_boundary_blocks(
                     mat.blocks[-4, -1],
                     xp.zeros_like(mat.blocks[-3, -1]),
                 ),
-                axis=2,
+                axis=-1,
             ),
             xp.concatenate(
                 (
@@ -152,10 +152,10 @@ def assemble_boundary_blocks(
                     mat.blocks[-3, -1],
                     mat.blocks[-4, -1],
                 ),
-                axis=2,
+                axis=-1,
             ),
         ),
-        axis=1,
+        axis=-2,
     )
     left[:] = xp.concatenate(
         (
@@ -165,7 +165,7 @@ def assemble_boundary_blocks(
                     mat.blocks[-1, -3],
                     mat.blocks[-1, -2],
                 ),
-                axis=2,
+                axis=-1,
             ),
             xp.concatenate(
                 (
@@ -173,7 +173,7 @@ def assemble_boundary_blocks(
                     mat.blocks[-1, -4],
                     mat.blocks[-1, -3],
                 ),
-                axis=2,
+                axis=-1,
             ),
             xp.concatenate(
                 (
@@ -181,8 +181,8 @@ def assemble_boundary_blocks(
                     xp.zeros_like(mat.blocks[-1, -4]),
                     mat.blocks[-1, -4],
                 ),
-                axis=2,
+                axis=-1,
             ),
         ),
-        axis=1,
+        axis=-2,
     )

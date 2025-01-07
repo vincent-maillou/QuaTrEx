@@ -60,7 +60,7 @@ class OBCConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     algorithm: Literal["sancho-rubio", "spectral"] = "spectral"
-    nevp_solver: Literal["beyn", "full"] = "beyn"
+    nevp_solver: Literal["beyn", "full"] = "full"
 
     # Parameters for spectral OBC algorithms.
     block_sections: PositiveInt = 1
@@ -74,7 +74,7 @@ class OBCConfig(BaseModel):
     convergence_tol: PositiveFloat = 1e-7
 
     # Parameters for subspace NEVP solvers.
-    r_o: PositiveFloat = 10.0
+    r_o: PositiveFloat = 1000.0
     r_i: PositiveFloat = 0.9
     c_hat: PositiveInt = 10
     num_quad_points: PositiveInt = 20
@@ -86,7 +86,7 @@ class OBCConfig(BaseModel):
 
 class LyapunovConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    algorithm: Literal["spectral", "doubling", "vectorize"] = "spectral"
+    algorithm: Literal["spectral", "doubling", "vectorize"] = "doubling"
 
     # Parameters for iterative Lyapunov algorithms.
     max_iterations: PositiveInt = 1000
@@ -98,6 +98,8 @@ class LyapunovConfig(BaseModel):
 class ElectronConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
     solver: Literal["rgf", "inv"] = "rgf"
+
+    number_of_kpoints: tuple[PositiveInt, PositiveInt, PositiveInt] = (1, 1, 1)
 
     obc: OBCConfig = OBCConfig()
     lyapunov: LyapunovConfig = LyapunovConfig()
@@ -153,6 +155,8 @@ class CoulombScreeningConfig(BaseModel):
     lyapunov: LyapunovConfig = LyapunovConfig()
 
     temperature: PositiveFloat = 300.0  # K
+
+    relative_permittivity: PositiveFloat = 1.0
 
     left_temperature: PositiveFloat | None = None
     right_temperature: PositiveFloat | None = None
