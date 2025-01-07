@@ -112,6 +112,16 @@ class CoulombScreeningSolver(SubsystemSolver):
             self.coulomb_matrix_sparray = self.coulomb_matrix_dict[(0, 0, 0)].tocoo()
             number_of_kpoints = quatrex_config.electron.number_of_kpoints
 
+        # Scale the Coulomb matrix with the relative permittivity.
+        self.coulomb_matrix_sparray.data *= 1 / (
+            quatrex_config.coulomb_screening.relative_permittivity
+        )
+        if self.coulomb_matrix_dict is not None:
+            for key in self.coulomb_matrix_dict:
+                self.coulomb_matrix_dict[key].data *= 1 / (
+                    quatrex_config.coulomb_screening.relative_permittivity
+                )
+
         # Load block sizes.
         self.small_block_sizes = distributed_load(
             quatrex_config.input_dir / "block_sizes.npy"
@@ -142,6 +152,7 @@ class CoulombScreeningSolver(SubsystemSolver):
             + tuple([k for k in number_of_kpoints if k > 1]),
             densify_blocks=[(i, i) for i in range(len(self.small_block_sizes))],
         )
+        self.coulomb_matrix.data[:] = 0
         if self.coulomb_matrix_dict is not None:
             number_of_kpoints = xp.array(
                 [1 if k <= 1 else k for k in number_of_kpoints]
@@ -152,6 +163,8 @@ class CoulombScreeningSolver(SubsystemSolver):
                 number_of_kpoints,
                 -(number_of_kpoints // 2),
             )
+            # Change the sign of the Coulomb matrix.
+            self.coulomb_matrix.data *= -1
 
         # Create a dummy identity matrix.
         dummy_identity_data = xp.ones_like(self.coulomb_matrix_sparray.data) * 1e-16

@@ -156,6 +156,8 @@ class CoulombScreeningConfig(BaseModel):
 
     temperature: PositiveFloat = 300.0  # K
 
+    relative_permittivity: PositiveFloat = 1.0
+
     left_temperature: PositiveFloat | None = None
     right_temperature: PositiveFloat | None = None
 
