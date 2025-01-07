@@ -290,6 +290,15 @@ class SigmaFock(ScatteringSelfEnergy):
             0.5 * (coulomb_matrix_sparray + coulomb_matrix_sparray.conj().T)
         ).tocoo()
 
+        # Scale the coulomb matrix by the relative permittivity.
+        coulomb_matrix_sparray *= (
+            1 / quatrex_config.coulomb_screening.relative_permittivity
+        )
+        if coulomb_matrix_dict is not None:
+            coulomb_matrix_dict = {
+                k: v * 1 / quatrex_config.coulomb_screening.relative_permittivity
+                for k, v in coulomb_matrix_dict.items()
+            }
         # Load block sizes for the coulomb matrix.
         block_sizes = distributed_load(quatrex_config.input_dir / "block_sizes.npy")
 

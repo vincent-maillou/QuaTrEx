@@ -124,6 +124,16 @@ class CoulombScreeningSolver(SubsystemSolver):
             0.5 * (coulomb_matrix_sparray + coulomb_matrix_sparray.conj().T).tocoo()
         ).tocoo()
 
+        # Scale the Coulomb matrix with the relative permittivity.
+        self.coulomb_matrix_sparray.data *= 1 / (
+            quatrex_config.coulomb_screening.relative_permittivity
+        )
+        if self.coulomb_matrix_dict is not None:
+            for key in self.coulomb_matrix_dict:
+                self.coulomb_matrix_dict[key].data *= 1 / (
+                    quatrex_config.coulomb_screening.relative_permittivity
+                )
+
         # Load block sizes.
         self.small_block_sizes = distributed_load(
             quatrex_config.input_dir / "block_sizes.npy"
@@ -185,6 +195,8 @@ class CoulombScreeningSolver(SubsystemSolver):
                 number_of_kpoints,
                 -(number_of_kpoints // 2),
             )
+            # Change the sign of the Coulomb matrix.
+            self.coulomb_matrix.data *= -1
 
         v_times_p_sparsity_pattern = _spillover_matmul(
             sparsity_pattern, sparsity_pattern, self.small_block_sizes
