@@ -35,6 +35,16 @@ def fft_convolve(a: NDArray, b: NDArray) -> NDArray:
     return xp.fft.ifftn(a_fft * b_fft, axes=(0,))
 
 
+def fft_circular_convolve(a: xp.ndarray, b: xp.ndarray, axes: tuple[int]) -> xp.ndarray:
+    """Computes the circular convolution of two arrays using the FFT."""
+    # Extract the shapes of the arrays along the axes as tuples.
+    nka = tuple(a.shape[i] for i in axes)
+    nkb = tuple(b.shape[i] for i in axes)
+    a_fft = xp.fft.fftn(a, nka, axes=axes)
+    b_fft = xp.fft.fftn(b, nkb, axes=axes)
+    return xp.fft.ifftn(a_fft * b_fft, axes=axes)
+
+
 def fft_convolve_kpoints(a: xp.ndarray, b: xp.ndarray) -> xp.ndarray:
     """Computes the convolution of two arrays using the FFT."""
     ne = a.shape[0] + b.shape[0] - 1
@@ -313,10 +323,9 @@ class SigmaFock(ScatteringSelfEnergy):
         )
         coulomb_matrix.data = 0.0
         coulomb_matrix += coulomb_matrix_sparray
-        coulomb_matrix.dtranspose()
-        self.coulomb_matrix_data = coulomb_matrix.data[0]
 
         if coulomb_matrix_dict is not None:
+            self.coulomb_matrix.data[:] = 0
             number_of_kpoints = xp.array(
                 [1 if k <= 1 else k for k in number_of_kpoints]
             )
@@ -326,6 +335,10 @@ class SigmaFock(ScatteringSelfEnergy):
                 number_of_kpoints,
                 -(number_of_kpoints // 2),
             )
+            # Change the sign of the Coulomb matrix.
+            self.coulomb_matrix.data *= -1
+        coulomb_matrix.dtranspose()
+        self.coulomb_matrix_data = coulomb_matrix.data[0]
 
     def compute(self, g_lesser: DSBSparse, out: tuple[DSBSparse, ...]) -> None:
         """Computes the Fock self-energy.
@@ -352,7 +365,11 @@ class SigmaFock(ScatteringSelfEnergy):
 
         # Compute the electron density by summing over energies.
         gl_density = self.prefactor * g_lesser.data.sum(axis=0)
-        sigma_retarded.data += xp.real(gl_density * self.coulomb_matrix_data)
+        sigma_retarded.data += fft_circular_convolve(
+            gl_density,
+            self.coulomb_matrix_data,
+            axes=tuple(range(gl_density.ndim - 1)),
+        )
 
         # NOTE: The electron Green's functions and self-energies must
         # not be transposed back to stack distribution, as they are
