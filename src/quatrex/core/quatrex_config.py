@@ -1,9 +1,9 @@
 # Copyright (c) 2024 ETH Zurich and the authors of the quatrex package.
 
 import tomllib
+from math import isclose
 from pathlib import Path
 from typing import Literal
-from math import isclose
 
 from pydantic import (
     BaseModel,
@@ -126,7 +126,7 @@ class ElectronConfig(BaseModel):
     obc: OBCConfig = OBCConfig()
     lyapunov: LyapunovConfig = LyapunovConfig()
 
-    eta_obc: NonNegativeFloat = 1e-6  # eV
+    eta_obc: NonNegativeFloat = 0  # eV
     eta: NonNegativeFloat = 1e-12  # eV
 
     fermi_level: float | None = None
@@ -139,8 +139,7 @@ class ElectronConfig(BaseModel):
     left_temperature: PositiveFloat | None = None
     right_temperature: PositiveFloat | None = None
 
-    homogenize_polarization: bool | None = None
-    homogenize_sigma: bool | None = None
+    flatband: bool | None = None
 
     @model_validator(mode="after")
     def set_left_right_fermi_levels(self) -> Self:
@@ -174,19 +173,13 @@ class ElectronConfig(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def set_homogenize(self) -> Self:
-        """Sets the homogenize flags if not already set."""
-        if self.homogenize_polarization is None:
+    def set_flatband(self) -> Self:
+        """Sets the flatband flags if not already set."""
+        if self.flatband is None:
             if isclose(self.left_fermi_level, self.right_fermi_level):
-                self.homogenize_polarization = True
+                self.flatband = True
             else:
-                self.homogenize_polarization = False
-
-        if self.homogenize_sigma is None:
-            if isclose(self.left_fermi_level, self.right_fermi_level):
-                self.homogenize_sigma = True
-            else:
-                self.homogenize_sigma = False
+                self.flatband = False
 
         return self
 

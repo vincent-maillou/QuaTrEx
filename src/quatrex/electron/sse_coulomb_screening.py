@@ -7,7 +7,7 @@ from qttools.utils.mpi_utils import distributed_load
 from quatrex.core.compute_config import ComputeConfig
 from quatrex.core.quatrex_config import QuatrexConfig
 from quatrex.core.sse import ScatteringSelfEnergy
-from quatrex.core.utils import homogenize
+
 
 def fft_convolve(a: NDArray, b: NDArray) -> NDArray:
     """Computes the convolution of two arrays using FFT.
@@ -124,7 +124,6 @@ class SigmaCoulombScreening(ScatteringSelfEnergy):
         self.w_greater_reduced = compute_config.dsbsparse_type.zeros_like(
             self.w_lesser_reduced
         )
-        self.homogenize = quatrex_config.electron.homogenize_sigma
 
     def compute(
         self,
@@ -156,13 +155,13 @@ class SigmaCoulombScreening(ScatteringSelfEnergy):
         # pattern as g_lesser and g_greater, we have to reduce them to
         # the same sparsity pattern.
         if w_lesser.nnz != self.w_lesser_reduced.nnz:
-            self.w_lesser_reduced.data[:] = w_lesser[*self.w_lesser_reduced.spy()]
+            self.w_lesser_reduced.data = w_lesser[*self.w_lesser_reduced.spy()]
         else:
-            self.w_lesser_reduced.data[:] = w_lesser.data
+            self.w_lesser_reduced.data = w_lesser.data
         if w_greater.nnz != self.w_greater_reduced.nnz:
-            self.w_greater_reduced.data[:] = w_greater[*self.w_greater_reduced.spy()]
+            self.w_greater_reduced.data = w_greater[*self.w_greater_reduced.spy()]
         else:
-            self.w_greater_reduced.data[:] = w_greater.data
+            self.w_greater_reduced.data = w_greater.data
 
         sigma_lesser, sigma_greater, sigma_retarded = out
         # Transpose the matrices to nnz distribution.
@@ -194,7 +193,7 @@ class SigmaCoulombScreening(ScatteringSelfEnergy):
         )
 
         # Compute retarded self-energy with a Hilbert transform.
-        sigma_antihermitian = sigma_greater.data - sigma_lesser.data
+        sigma_antihermitian = 1j * xp.imag(sigma_greater.data - sigma_lesser.data)
         sigma_hermitian = hilbert_transform(sigma_antihermitian, self.energies)
         sigma_retarded.data += 1j * sigma_hermitian + sigma_antihermitian / 2
 
@@ -210,18 +209,6 @@ class SigmaCoulombScreening(ScatteringSelfEnergy):
         ):
             m.dtranspose() if m.distribution_state != "stack" else None
 
-        # Enforce anti-Hermitian symmetry.
-        sigma_lesser.data = (sigma_lesser.data - sigma_lesser.ltranspose(copy=True).data.conj()) / 2
-        sigma_greater.data = (sigma_greater.data - sigma_greater.ltranspose(copy=True).data.conj()) / 2
-        # NOTE: The original code would compute simga_retarded as
-        # real(sigma_retarded) + (sigma_greater - sigma_lesser) / 2
-        # However, it is not fully clear if needed.
-
-        # Homogenize in case of flatband.
-        if self.homogenize:
-            homogenize(sigma_lesser)
-            homogenize(sigma_greater)
-            homogenize(sigma_retarded)
 
 class SigmaFock(ScatteringSelfEnergy):
     """Computes the bare Fock self-energy.
@@ -271,7 +258,6 @@ class SigmaFock(ScatteringSelfEnergy):
             (self.energies.size,),
             densify_blocks=[(i, i) for i in range(len(block_sizes))],
         )
-        self.homogenize = quatrex_config.electron.homogenize_sigma
 
     def compute(self, g_lesser: DSBSparse, out: tuple[DSBSparse, ...]) -> None:
         """Computes the Fock self-energy.
@@ -290,10 +276,6 @@ class SigmaFock(ScatteringSelfEnergy):
             m.dtranspose() if m.distribution_state != "nnz" else None
         # Compute the electron density by summing over energies.
         gl_density = self.prefactor * g_lesser.data.sum(axis=0)
-        sigma_retarded.data += gl_density * self.coulomb_matrix.data
+        sigma_retarded.data += xp.real(gl_density * self.coulomb_matrix.data)
         for m in (g_lesser, sigma_retarded, self.coulomb_matrix):
             m.dtranspose() if m.distribution_state != "stack" else None
-
-        # Homogenize in case of flatband.
-        if self.homogenize:
-            homogenize(sigma_retarded)
