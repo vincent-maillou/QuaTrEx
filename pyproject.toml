@@ -27,7 +27,7 @@ keywords = ["Nano-TCAD", "Quantum Transport", "NEGF"]
 dynamic = ["version"]
 requires-python = ">=3.11"
 dependencies = [
-    "qttools @ git+git://github.com/vincent-maillou/qttools/tree/dev/sandbox",
+    "qttools @ git+git://github.com/vincent-maillou/qttools@dev",
     "numpy>=1.23.2",
     "scipy",
     "matplotlib",
