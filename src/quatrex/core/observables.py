@@ -41,7 +41,7 @@ def density(x: DSBSparse, overlap: sparse.sparray | None = None) -> np.ndarray:
 
         local_density.append(local_density_slice.imag)
 
-    return np.vstack(comm.allgather(np.hstack(local_density)))
+    return np.vstack(comm.allgather(np.concatenate(local_density, axis=-1)))
 
 
 def contact_currents(solver: ElectronSolver) -> np.ndarray:
