@@ -1,4 +1,4 @@
-simulation_dir = "/home/awinka/Python/new_quatrex/quatrex/examples/w90/cnt"
+simulation_dir = "."
 
 [scba]
 max_iterations = 2
