@@ -23,7 +23,13 @@ def _block_canonicalize(rows, cols, block_sizes):
 
 
 def test_compute(
-    datadir, quatrex_config, compute_config, block_sizes, electron_energies, iteration
+    datadir,
+    quatrex_config,
+    compute_config,
+    block_sizes,
+    electron_energies,
+    number_of_kpoints,
+    iteration,
 ):
     """Test the computation of the polarization."""
     # Load the data
@@ -49,29 +55,64 @@ def test_compute(
     cols = cols[reordering]
     # Create the DSBSparse objects
     g_lesser = compute_config.dbsparse_type(
-        gl_data, rows, cols, block_sizes, (gl_data.shape[0],)
+        gl_data,
+        rows,
+        cols,
+        block_sizes,
+        (gl_data.shape[0],) + tuple([k for k in number_of_kpoints if k > 1]),
+        densify_blocks=[(i, i) for i in range(len(block_sizes))],
     )
     g_greater = compute_config.dbsparse_type(
-        gg_data, rows, cols, block_sizes, (gg_data.shape[0],)
+        gg_data,
+        rows,
+        cols,
+        block_sizes,
+        (gg_data.shape[0],) + tuple([k for k in number_of_kpoints if k > 1]),
+        densify_blocks=[(i, i) for i in range(len(block_sizes))],
     )
     w_lesser = compute_config.dbsparse_type(
-        wl_data, rows, cols, block_sizes, (wl_data.shape[0],)
+        wl_data,
+        rows,
+        cols,
+        block_sizes,
+        (wl_data.shape[0],) + tuple([k for k in number_of_kpoints if k > 1]),
+        densify_blocks=[(i, i) for i in range(len(block_sizes))],
     )
     w_greater = compute_config.dbsparse_type(
-        wg_data, rows, cols, block_sizes, (wg_data.shape[0],)
+        wg_data,
+        rows,
+        cols,
+        block_sizes,
+        (wg_data.shape[0],) + tuple([k for k in number_of_kpoints if k > 1]),
+        densify_blocks=[(i, i) for i in range(len(block_sizes))],
     )
     s_lesser = compute_config.dbsparse_type.zeros_like(g_lesser)
     s_greater = compute_config.dbsparse_type.zeros_like(g_greater)
     s_retarded = compute_config.dbsparse_type.zeros_like(g_greater)
     # Create the expected results
     s_lesser_expected = compute_config.dbsparse_type(
-        sl_data, rows, cols, block_sizes, (sl_data.shape[0],)
+        sl_data,
+        rows,
+        cols,
+        block_sizes,
+        (sl_data.shape[0],) + tuple([k for k in number_of_kpoints if k > 1]),
+        densify_blocks=[(i, i) for i in range(len(block_sizes))],
     )
     s_greater_expected = compute_config.dbsparse_type(
-        sg_data, rows, cols, block_sizes, (sg_data.shape[0],)
+        sg_data,
+        rows,
+        cols,
+        block_sizes,
+        (sg_data.shape[0],) + tuple([k for k in number_of_kpoints if k > 1]),
+        densify_blocks=[(i, i) for i in range(len(block_sizes))],
     )
     s_retarded_expected = compute_config.dbsparse_type(
-        sr_data, rows, cols, block_sizes, (sr_data.shape[0],)
+        sr_data,
+        rows,
+        cols,
+        block_sizes,
+        (sr_data.shape[0],) + tuple([k for k in number_of_kpoints if k > 1]),
+        densify_blocks=[(i, i) for i in range(len(block_sizes))],
     )
     # Initialize the self-energy object
     sigma_coulomb_screening = SigmaCoulombScreening(

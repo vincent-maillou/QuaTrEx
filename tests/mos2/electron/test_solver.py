@@ -51,14 +51,27 @@ def test_solve(
     rows = rows[reordering]
     cols = cols[reordering]
     # Create the DSBSparse objects
+    number_of_kpoints = quatrex_config.electron.number_of_kpoints
     sigma_lesser = compute_config.dbsparse_type(
-        sl_data, rows, cols, block_sizes, (sl_data.shape[0],)
+        sl_data,
+        rows,
+        cols,
+        block_sizes,
+        (sl_data.shape[0],) + tuple([k for k in number_of_kpoints if k > 1]),
     )
     sigma_greater = compute_config.dbsparse_type(
-        sg_data, rows, cols, block_sizes, (sg_data.shape[0],)
+        sg_data,
+        rows,
+        cols,
+        block_sizes,
+        (sg_data.shape[0],) + tuple([k for k in number_of_kpoints if k > 1]),
     )
     sigma_retarded = compute_config.dbsparse_type(
-        sr_data, rows, cols, block_sizes, (sr_data.shape[0],)
+        sr_data,
+        rows,
+        cols,
+        block_sizes,
+        (sr_data.shape[0],) + tuple([k for k in number_of_kpoints if k > 1]),
     )
     # Initialize the output objects
     g_lesser = compute_config.dbsparse_type.zeros_like(sigma_lesser)
