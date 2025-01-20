@@ -167,3 +167,4 @@ notebooks/
 # Example outputs
 **/outputs/*
 hostfile
+.vscode/

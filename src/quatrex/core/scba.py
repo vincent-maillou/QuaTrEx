@@ -1,12 +1,14 @@
-# Copyright 2023-2024 ETH Zurich and the QuaTrEx authors. All rights reserved.
+# Copyright (c) 2024 ETH Zurich and the authors of the quatrex package.
 
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
-import numpy as np
+from cupyx.profiler import time_range
 from mpi4py import MPI
 from mpi4py.MPI import COMM_WORLD as comm
+from qttools import NDArray, xp
 from qttools.datastructures import DSBSparse
 
 from quatrex.core.compute_config import ComputeConfig
@@ -24,7 +26,9 @@ from quatrex.phonon import PhononSolver, PiPhonon
 from quatrex.photon import PhotonSolver, PiPhoton
 
 
-def _get_allocator(dsbsparse_type: DSBSparse, system_matrix: DSBSparse) -> DSBSparse:
+def _get_allocator(
+    dsbsparse_type: DSBSparse, system_matrix: DSBSparse
+) -> Callable[[], DSBSparse]:
     """Returns an allocation factory for the given DSBSparse type.
 
     Parameters
@@ -35,6 +39,11 @@ def _get_allocator(dsbsparse_type: DSBSparse, system_matrix: DSBSparse) -> DSBSp
         The system matrix to allocate the DSBSparse type for. The
         sparsity pattern of the system matrix is used to allocate
         the DSBSparse matrix.
+
+    Returns
+    -------
+    Callable[[], DSBSparse]
+        The allocation function.
 
     """
 
@@ -56,9 +65,11 @@ class SCBAData:
 
     def __init__(self, scba: "SCBA") -> None:
         """Initializes the SCBA data."""
+        # TODO: This needs to be rewritten, to take interaction cutoffs
+        # into account.
 
         allocate_electron_quantity = _get_allocator(
-            scba.compute_config.dbsparse_type,
+            scba.compute_config.dsbsparse_type,
             scba.electron_solver.system_matrix,
         )
         self.sigma_retarded_prev = allocate_electron_quantity()
@@ -73,14 +84,14 @@ class SCBAData:
 
         if hasattr(scba, "coulomb_screening_solver"):
             allocate_polarization_quantity = _get_allocator(
-                scba.compute_config.dbsparse_type,
+                scba.compute_config.dsbsparse_type,
                 scba.electron_solver.system_matrix,
             )
             self.p_retarded = allocate_polarization_quantity()
             self.p_lesser = allocate_polarization_quantity()
             self.p_greater = allocate_polarization_quantity()
             allocate_coulomb_screening_quantity = _get_allocator(
-                scba.compute_config.dbsparse_type,
+                scba.compute_config.dsbsparse_type,
                 scba.coulomb_screening_solver.system_matrix,
             )
             self.w_retarded = allocate_coulomb_screening_quantity()
@@ -89,7 +100,7 @@ class SCBAData:
 
         if hasattr(scba, "photon_solver"):
             allocate_photon_quantity = _get_allocator(
-                scba.compute_config.dbsparse_type,
+                scba.compute_config.dsbsparse_type,
                 scba.photon_solver.system_matrix,
             )
             self.pi_photon_retarded = allocate_photon_quantity()
@@ -101,7 +112,7 @@ class SCBAData:
 
         if hasattr(scba, "phonon_solver"):
             allocate_phonon_quantity = _get_allocator(
-                scba.compute_config.dbsparse_type,
+                scba.compute_config.dsbsparse_type,
                 scba.phonon_solver.system_matrix,
             )
             self.pi_phonon_retarded = allocate_phonon_quantity()
@@ -114,49 +125,56 @@ class SCBAData:
 
 @dataclass
 class Observables:
+    """Observable quantities for the SCBA."""
+
     # --- Electrons ----------------------------------------------------
-    electron_ldos: np.ndarray = None
-    electron_density: np.ndarray = None
-    hole_density: np.ndarray = None
+    electron_ldos: NDArray = None
+    electron_density: NDArray = None
+    hole_density: NDArray = None
     electron_current: dict = field(default_factory=dict)
 
-    electron_electron_scattering_rate: np.ndarray = None
-    electron_photon_scattering_rate: np.ndarray = None
-    electron_phonon_scattering_rate: np.ndarray = None
+    valence_band_edges: NDArray = None
+    conduction_band_edges: NDArray = None
 
-    sigma_retarded_density: np.ndarray = None
-    sigma_lesser_density: np.ndarray = None
-    sigma_greater_density: np.ndarray = None
+    excess_charge_density: NDArray = None
+
+    electron_electron_scattering_rate: NDArray = None
+    electron_photon_scattering_rate: NDArray = None
+    electron_phonon_scattering_rate: NDArray = None
+
+    sigma_retarded_density: NDArray = None
+    sigma_lesser_density: NDArray = None
+    sigma_greater_density: NDArray = None
 
     # --- Coulomb screening --------------------------------------------
-    w_retarded_density: np.ndarray = None
-    w_lesser_density: np.ndarray = None
-    w_greater_density: np.ndarray = None
+    w_retarded_density: NDArray = None
+    w_lesser_density: NDArray = None
+    w_greater_density: NDArray = None
 
-    p_retarded_density: np.ndarray = None
-    p_lesser_density: np.ndarray = None
-    p_greater_density: np.ndarray = None
+    p_retarded_density: NDArray = None
+    p_lesser_density: NDArray = None
+    p_greater_density: NDArray = None
 
     # --- Photons ------------------------------------------------------
-    pi_photon_retarded_density: np.ndarray = None
-    pi_photon_lesser_density: np.ndarray = None
-    pi_photon_greater_density: np.ndarray = None
+    pi_photon_retarded_density: NDArray = None
+    pi_photon_lesser_density: NDArray = None
+    pi_photon_greater_density: NDArray = None
 
-    d_photon_retarded_density: np.ndarray = None
-    d_photon_lesser_density: np.ndarray = None
-    d_photon_greater_density: np.ndarray = None
+    d_photon_retarded_density: NDArray = None
+    d_photon_lesser_density: NDArray = None
+    d_photon_greater_density: NDArray = None
 
-    photon_current_density: np.ndarray = None
+    photon_current_density: NDArray = None
 
     # --- Phonons ------------------------------------------------------
-    pi_phonon_retarded_density: np.ndarray = None
-    pi_phonon_lesser_density: np.ndarray = None
-    pi_phonon_greater_density: np.ndarray = None
-    d_phonon_retarded_density: np.ndarray = None
-    d_phonon_lesser_density: np.ndarray = None
-    d_phonon_greater_density: np.ndarray = None
+    pi_phonon_retarded_density: NDArray = None
+    pi_phonon_lesser_density: NDArray = None
+    pi_phonon_greater_density: NDArray = None
+    d_phonon_retarded_density: NDArray = None
+    d_phonon_lesser_density: NDArray = None
+    d_phonon_greater_density: NDArray = None
 
-    thermal_current: np.ndarray = None
+    thermal_current: NDArray = None
 
 
 class SCBA:
@@ -167,14 +185,16 @@ class SCBA:
     quatrex_config : Path
         Quatrex configuration file.
     compute_config : Path, optional
-        Compute configuration file.
+        Compute configuration file, by default None. If None, the
+        default compute parameters are used.
 
     """
 
+    @time_range()
     def __init__(
         self,
         quatrex_config: QuatrexConfig,
-        compute_config: ComputeConfig = None,
+        compute_config: ComputeConfig | None = None,
     ) -> None:
         """Initializes an SCBA instance."""
         self.quatrex_config = quatrex_config
@@ -185,7 +205,7 @@ class SCBA:
         self.compute_config = compute_config
 
         # ----- Electrons ----------------------------------------------
-        self.electron_energies = np.load(
+        self.electron_energies = xp.load(
             self.quatrex_config.input_dir / "electron_energies.npy"
         )
         self.electron_solver = ElectronSolver(
@@ -200,7 +220,7 @@ class SCBA:
                 self.quatrex_config.input_dir / "coulomb_screening_energies.npy"
             )
             if os.path.isfile(energies_path):
-                self.coulomb_screening_energies = np.load(energies_path)
+                self.coulomb_screening_energies = xp.load(energies_path)
             else:
                 self.coulomb_screening_energies = (
                     self.electron_energies - self.electron_energies[0]
@@ -212,7 +232,7 @@ class SCBA:
                 self.quatrex_config, self.compute_config, self.electron_energies
             )
             self.p_coulomb_screening = PCoulombScreening(
-                self.coulomb_screening_energies
+                self.quatrex_config, self.coulomb_screening_energies
             )
             self.coulomb_screening_solver = CoulombScreeningSolver(
                 self.quatrex_config,
@@ -226,7 +246,7 @@ class SCBA:
         # ----- Photons ------------------------------------------------
         if self.quatrex_config.scba.photon:
             energies_path = self.quatrex_config.input_dir / "photon_energies.npy"
-            self.photon_energies = np.load(energies_path)
+            self.photon_energies = xp.load(energies_path)
             self.pi_photon = PiPhoton(...)
             self.photon_solver = PhotonSolver(
                 self.quatrex_config,
@@ -240,7 +260,7 @@ class SCBA:
         if self.quatrex_config.scba.phonon:
             if self.quatrex_config.phonon.model == "negf":
                 energies_path = self.quatrex_config.input_dir / "phonon_energies.npy"
-                self.phonon_energies = np.load(energies_path)
+                self.phonon_energies = xp.load(energies_path)
                 self.pi_phonon = PiPhonon(...)
                 self.phonon_solver = PhononSolver(
                     self.quatrex_config,
@@ -256,43 +276,55 @@ class SCBA:
         self.data = SCBAData(self)
         self.observables = Observables()
 
-    def _swap_sigma(self) -> None:
-        """Swaps the current and previous self-energy buffers."""
-        self.data.sigma_lesser._data[:], self.data.sigma_lesser_prev._data[:] = (
-            self.data.sigma_lesser_prev._data,
-            self.data.sigma_lesser._data,
-        )
-        self.data.sigma_greater._data[:], self.data.sigma_greater_prev._data[:] = (
-            self.data.sigma_greater_prev._data,
-            self.data.sigma_greater._data,
-        )
-        self.data.sigma_retarded._data[:], self.data.sigma_retarded_prev._data[:] = (
-            self.data.sigma_retarded_prev._data,
-            self.data.sigma_retarded._data,
-        )
+    def _stash_sigma(self) -> None:
+        """Stash the current into the previous self-energy buffers."""
+        self.data.sigma_lesser_prev._data[:] = self.data.sigma_lesser._data
+        self.data.sigma_greater_prev._data[:] = self.data.sigma_greater._data
+        self.data.sigma_retarded_prev._data[:] = self.data.sigma_retarded._data
+
+        self.data.sigma_retarded._data[:] = 0.0
+        self.data.sigma_lesser._data[:] = 0.0
+        self.data.sigma_greater._data[:] = 0.0
 
     def _update_sigma(self) -> None:
         """Updates the self-energy with a mixing factor."""
         mixing_factor = self.quatrex_config.scba.mixing_factor
-        self.data.sigma_lesser.data[:] = (
+        self.data.sigma_lesser.data = (
             (1 - mixing_factor) * self.data.sigma_lesser_prev.data
             + mixing_factor * self.data.sigma_lesser.data
         )
-        self.data.sigma_greater.data[:] = (
+        self.data.sigma_greater.data = (
             (1 - mixing_factor) * self.data.sigma_greater_prev.data
             + mixing_factor * self.data.sigma_greater.data
         )
-        self.data.sigma_retarded.data[:] = (
+        self.data.sigma_retarded.data = (
             (1 - mixing_factor) * self.data.sigma_retarded_prev.data
             + mixing_factor * self.data.sigma_retarded.data
         )
 
+        # Symmetrization.
+        self.data.sigma_lesser.data = 0.5 * (
+            self.data.sigma_lesser.data
+            - self.data.sigma_lesser.ltranspose(copy=True).data.conj()
+        )
+        self.data.sigma_greater.data = 0.5 * (
+            self.data.sigma_greater.data
+            - self.data.sigma_greater.ltranspose(copy=True).data.conj()
+        )
+        self.data.sigma_lesser._data.real = 0
+        self.data.sigma_greater._data.real = 0
+
+        self.data.sigma_retarded._data.imag = 0.0
+
+        self.data.sigma_retarded.data += 0.5 * (
+            self.data.sigma_greater.data - self.data.sigma_lesser.data
+        )
+
     def _has_converged(self) -> bool:
         """Checks if the SCBA has converged."""
-        # Relative infinity norm of the self-energy update.
+        # Infinity norm of the self-energy update.
         diff = self.data.sigma_retarded.data - self.data.sigma_retarded_prev.data
-        max_diff = np.max(np.abs(diff))
-        # # rel_max_diff = max_diff / np.max(np.abs(self.data.sigma_retarded.data))
+        max_diff = xp.max(xp.abs(diff))
         max_diff = comm.allreduce(max_diff, op=MPI.MAX)
         (
             print(f"Maximum Self-Energy Update: {max_diff}", flush=True)
@@ -303,10 +335,10 @@ class SCBA:
         #     return True
         # return False
         i_left, i_right = contact_currents(self.electron_solver)
-        change_left = np.linalg.norm(
+        change_left = xp.linalg.norm(
             i_left.real - self.observables.electron_current.get("left", 0.0)
         )
-        change_right = np.linalg.norm(
+        change_right = xp.linalg.norm(
             i_right.real - self.observables.electron_current.get("right", 0.0)
         )
         ave_change = 0.5 * (change_left + change_right)
@@ -315,8 +347,8 @@ class SCBA:
             if comm.rank == 0
             else None
         )
-        rel_change_left = change_left / np.linalg.norm(i_left.real)
-        rel_change_right = change_right / np.linalg.norm(i_right.real)
+        rel_change_left = change_left / xp.linalg.norm(i_left.real)
+        rel_change_right = change_right / xp.linalg.norm(i_right.real)
         rel_ave_change = 0.5 * (rel_change_left + rel_change_right)
         (
             print(f"Relative Average Current Change: {rel_ave_change}", flush=True)
@@ -336,7 +368,8 @@ class SCBA:
 
         # if ave_change < self.quatrex_config.scba.convergence_tol:
         #     return True
-        return False
+
+        return False  # TODO: :-)
 
     def _compute_phonon_interaction(self):
         """Computes the phonon interaction."""
@@ -362,17 +395,6 @@ class SCBA:
         """Computes the Coulomb screening interaction."""
         times = []
         times.append(time.perf_counter())
-        self.sigma_fock.compute(
-            self.data.g_lesser,
-            out=(self.data.sigma_retarded,),
-        )
-        t_fock = time.perf_counter() - times.pop()
-        (
-            print(f"Time for Fock self-energy: {t_fock:.2f} s", flush=True)
-            if comm.rank == 0
-            else None
-        )
-        times.append(time.perf_counter())
         self.p_coulomb_screening.compute(
             self.data.g_lesser,
             self.data.g_greater,
@@ -394,6 +416,17 @@ class SCBA:
         t_solve = time.perf_counter() - times.pop()
         (
             print(f"Time for Coulomb screening solver: {t_solve:.2f} s", flush=True)
+            if comm.rank == 0
+            else None
+        )
+        times.append(time.perf_counter())
+        self.sigma_fock.compute(
+            self.data.g_lesser,
+            out=(self.data.sigma_retarded,),
+        )
+        t_fock = time.perf_counter() - times.pop()
+        (
+            print(f"Time for Fock self-energy: {t_fock:.2f} s", flush=True)
             if comm.rank == 0
             else None
         )
@@ -423,18 +456,130 @@ class SCBA:
         self.observables.electron_ldos = -density(
             self.data.g_retarded,
             self.electron_solver.overlap_sparray,
-        )
+        ) / (2 * xp.pi)
         self.observables.electron_density = density(
             self.data.g_lesser,
             self.electron_solver.overlap_sparray,
-        )
+        ) / (2 * xp.pi)
         self.observables.hole_density = -density(
             self.data.g_greater,
             self.electron_solver.overlap_sparray,
-        )
+        ) / (2 * xp.pi)
 
         self.observables.electron_current = dict(
             zip(("left", "right"), contact_currents(self.electron_solver))
+        )
+
+        if self.quatrex_config.scba.coulomb_screening:
+            self.observables.p_retarded_density = -density(
+                self.data.p_retarded,
+                self.coulomb_screening_solver.overlap_sparray,
+            ) / (2 * xp.pi)
+            self.observables.p_lesser_density = density(
+                self.data.p_lesser,
+                self.coulomb_screening_solver.overlap_sparray,
+            ) / (2 * xp.pi)
+            self.observables.p_greater_density = -density(
+                self.data.p_greater,
+                self.coulomb_screening_solver.overlap_sparray,
+            ) / (2 * xp.pi)
+
+            self.observables.w_retarded_density = -density(
+                self.data.w_retarded,
+                self.coulomb_screening_solver.overlap_sparray,
+            ) / (2 * xp.pi)
+            self.observables.w_lesser_density = density(
+                self.data.w_lesser,
+                self.coulomb_screening_solver.overlap_sparray,
+            ) / (2 * xp.pi)
+            self.observables.w_greater_density = -density(
+                self.data.w_greater,
+                self.coulomb_screening_solver.overlap_sparray,
+            ) / (2 * xp.pi)
+
+        self.observables.sigma_retarded_density = -density(
+            self.data.sigma_retarded,
+            self.electron_solver.overlap_sparray,
+        ) / (2 * xp.pi)
+        self.observables.sigma_lesser_density = density(
+            self.data.sigma_lesser,
+            self.electron_solver.overlap_sparray,
+        ) / (2 * xp.pi)
+        self.observables.sigma_greater_density = -density(
+            self.data.sigma_greater,
+            self.electron_solver.overlap_sparray,
+        ) / (2 * xp.pi)
+
+    def _write_iteration_outputs(self, iteration: int):
+        """Writes output for the current iteration on rank zero."""
+
+        if comm.rank != 0:
+            return
+
+        print(f"Writing output for iteration {iteration}...", flush=True)
+
+        output_dir = self.quatrex_config.simulation_dir / "outputs"
+        if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
+
+        xp.save(
+            f"{output_dir}/electron_ldos_{iteration}.npy",
+            self.observables.electron_ldos,
+        )
+        xp.save(
+            f"{output_dir}/electron_density_{iteration}.npy",
+            self.observables.electron_density,
+        )
+        xp.save(
+            f"{output_dir}/hole_density_{iteration}.npy", self.observables.hole_density
+        )
+        xp.save(
+            f"{output_dir}/i_left_{iteration}.npy",
+            self.observables.electron_current["left"],
+        )
+        xp.save(
+            f"{output_dir}/i_right_{iteration}.npy",
+            self.observables.electron_current["right"],
+        )
+
+        if self.quatrex_config.scba.coulomb_screening:
+            xp.save(
+                f"{output_dir}/p_lesser_density_{iteration}.npy",
+                self.observables.p_lesser_density,
+            )
+            xp.save(
+                f"{output_dir}/p_greater_density_{iteration}.npy",
+                self.observables.p_greater_density,
+            )
+            xp.save(
+                f"{output_dir}/p_retarded_density_{iteration}.npy",
+                self.observables.p_retarded_density,
+            )
+
+            xp.save(
+                f"{output_dir}/w_lesser_density_{iteration}.npy",
+                self.observables.w_lesser_density,
+            )
+            xp.save(
+                f"{output_dir}/w_greater_density_{iteration}.npy",
+                self.observables.w_greater_density,
+            )
+            xp.save(
+                f"{output_dir}/w_retarded_density_{iteration}.npy",
+                self.observables.w_retarded_density,
+            )
+
+        xp.save(
+            f"{output_dir}/sigma_retarded_density_{iteration}.npy",
+            self.observables.sigma_retarded_density,
+        )
+        xp.save(
+            f"{output_dir}/sigma_lesser_density_{iteration}.npy",
+            self.observables.sigma_lesser_density,
+        )
+        xp.save(
+            f"{output_dir}/sigma_greater_density_{iteration}.npy",
+            self.observables.sigma_greater_density,
         )
 
     def run(self) -> None:
@@ -459,24 +604,13 @@ class SCBA:
                 if comm.rank == 0
                 else None
             )
-            # Swap current with previous self-energy buffer.
+
+            # Stash current into previous self-energy buffer.
             times.append(time.perf_counter())
-            self._swap_sigma()
+            self._stash_sigma()
             t_swap = time.perf_counter() - times.pop()
             (
                 print(f"Time for swapping: {t_swap:.2f} s", flush=True)
-                if comm.rank == 0
-                else None
-            )
-
-            # Reset current self-energy.
-            times.append(time.perf_counter())
-            self.data.sigma_retarded._data[:] = 0.0
-            self.data.sigma_lesser._data[:] = 0.0
-            self.data.sigma_greater._data[:] = 0.0
-            t_reset = time.perf_counter() - times.pop()
-            (
-                print(f"Time for resetting: {t_reset:.2f} s", flush=True)
                 if comm.rank == 0
                 else None
             )
@@ -518,6 +652,7 @@ class SCBA:
                     if comm.rank == 0
                     else None
                 )
+                self._compute_observables()
                 break
             t_convergence = time.perf_counter() - times.pop()
             (
@@ -535,6 +670,10 @@ class SCBA:
                 if comm.rank == 0
                 else None
             )
+            self._compute_observables()
+
+            if i % self.quatrex_config.scba.output_interval == 0:
+                self._write_iteration_outputs(i)
 
             t_iteration = time.perf_counter() - times.pop()
             (
