@@ -1,0 +1,64 @@
+simulation_dir = "."
+
+[scba]
+min_iterations = 1
+max_iterations = 2
+mixing_factor = 0.5
+coulomb_screening = true
+
+
+[electron]
+left_fermi_level = -3.867978453411072  # eV
+right_fermi_level = -3.867978453411072 # eV
+
+fermi_level = -3.867978453411072 # eV
+
+conduction_band_edge = -2.073748850096381 # eV
+valence_band_edge = -4.817661368699056    # eV
+
+solver = "rgf"
+eta_obc = 0
+eta = 1e-12
+
+[electron.obc]
+algorithm = "spectral"
+
+nevp_solver = "beyn"
+
+num_ref_iterations = 3
+max_decay = 5
+min_decay = 1e-3
+r_o = 10
+r_i = 0.8
+m_0 = 60
+num_quad_points = 30
+
+
+[electron.obc.memoizer]
+enable = true
+
+
+[coulomb_screening]
+
+solver = "rgf"
+
+interaction_cutoff = 3 # Å
+
+
+[coulomb_screening.obc]
+algorithm = "spectral"
+# nevp_solver = "full"
+
+block_sections = 3
+nevp_solver = "beyn"
+
+num_ref_iterations = 3
+max_decay = 5
+min_decay = 1e-3
+r_o = 10
+r_i = 0.8
+m_0 = 60
+num_quad_points = 30
+
+[coulomb_screening.obc.memoizer]
+enable = true
