@@ -165,6 +165,10 @@ dev/
 notebooks/
 
 # Example outputs
-**/outputs/*
+**/outputs
 hostfile
 .vscode/
+
+# Nsight Systems output
+*.nsys-rep
+*.sqlite
