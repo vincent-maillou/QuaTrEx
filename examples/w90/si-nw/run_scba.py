@@ -11,7 +11,7 @@ from quatrex.core.quatrex_config import parse_config
 from quatrex.core.scba import SCBA
 
 PATH = os.path.dirname(__file__)
-NUM_THREADS = 1
+NUM_THREADS = 72
 
 if __name__ == "__main__":
 

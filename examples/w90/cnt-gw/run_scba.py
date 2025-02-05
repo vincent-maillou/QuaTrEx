@@ -11,11 +11,12 @@ from quatrex.core.quatrex_config import parse_config
 from quatrex.core.scba import SCBA
 
 PATH = os.path.dirname(__file__)
+NUM_THREADS = 72
 
 if __name__ == "__main__":
 
-    nb.set_num_threads(1)
-    with threadpool_limits(limits=1):
+    nb.set_num_threads(NUM_THREADS)
+    with threadpool_limits(limits=NUM_THREADS):
         pprint(threadpool_info()) if comm.rank == 0 else None
         config = parse_config(f"{PATH}/config.toml")
         scba = SCBA(config)
