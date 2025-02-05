@@ -3,7 +3,6 @@ import os
 import time
 
 import numba
-import numpy as np
 from mpi4py.MPI import COMM_WORLD as comm
 
 from quatrex.core.quatrex_config import parse_config
@@ -22,14 +21,3 @@ if __name__ == "__main__":
 
     if comm.rank == 0:
         print(f"Leaving SCBA after: {(toc - tic):.2f} s")
-
-        output_dir = f"{PATH}/outputs"
-        try:
-            os.mkdir(output_dir)
-        except FileExistsError:
-            pass
-        np.save(f"{output_dir}/electron_ldos.npy", scba.observables.electron_ldos)
-        np.save(f"{output_dir}/electron_density.npy", scba.observables.electron_density)
-        np.save(f"{output_dir}/hole_density.npy", scba.observables.hole_density)
-        np.save(f"{output_dir}/i_left.npy", scba.observables.electron_current["left"])
-        np.save(f"{output_dir}/i_right.npy", scba.observables.electron_current["right"])

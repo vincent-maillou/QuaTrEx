@@ -1,4 +1,4 @@
-simulation_dir = "examples/w90/mos2"
+simulation_dir = ""
 
 [scba]
 max_iterations = 2
@@ -10,6 +10,9 @@ coulomb_screening = true
 number_of_kpoints = [1, 3, 1]
 left_fermi_level = -1.1  # eV
 right_fermi_level = -1.1 # eV
+fermi_level = -1.1 # eV
+conduction_band_edge = -0.3187 # eV
+valence_band_edge = -2.0026 # eV
 solver = "rgf"
 eta = 1e-8
 
