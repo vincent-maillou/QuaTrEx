@@ -45,9 +45,7 @@ def assemble_kpoint_dsb(
                     else (
                         [] + [j]
                         if number_of_kpoints[1] > 1
-                        else [] + [k]
-                        if number_of_kpoints[2] > 1
-                        else []
+                        else [] + [k] if number_of_kpoints[2] > 1 else []
                     )
                 )
                 ik = (ii - number_of_kpoints[0] // 2) / number_of_kpoints[0]

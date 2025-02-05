@@ -56,7 +56,9 @@ class PCoulombScreening(ScatteringSelfEnergy):
     """
 
     def __init__(
-        self, quatrex_config: QuatrexConfig, coulomb_screening_energies: NDArray
+        self,
+        quatrex_config: QuatrexConfig,
+        coulomb_screening_energies: NDArray,
         number_of_kpoints: xp.ndarray,
     ) -> None:
         """Initializes the polarization."""
@@ -68,6 +70,7 @@ class PCoulombScreening(ScatteringSelfEnergy):
             * xp.abs(self.energies[1] - self.energies[0])
             / xp.prod(number_of_kpoints)
         )
+        self.flatband = quatrex_config.electron.flatband
 
     def compute(
         self, g_lesser: DSBSparse, g_greater: DSBSparse, out: tuple[DSBSparse, ...]

@@ -325,7 +325,7 @@ class SigmaFock(ScatteringSelfEnergy):
         coulomb_matrix += coulomb_matrix_sparray
 
         if coulomb_matrix_dict is not None:
-            self.coulomb_matrix.data[:] = 0
+            self.coulomb_matrix.data = 0
             number_of_kpoints = xp.array(
                 [1 if k <= 1 else k for k in number_of_kpoints]
             )
