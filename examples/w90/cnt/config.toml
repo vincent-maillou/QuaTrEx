@@ -2,38 +2,72 @@ simulation_dir = "."
 
 [scba]
 max_iterations = 2
-mixing_factor = 1.0
+mixing_factor = 0.5
 phonon = false
 coulomb_screening = true
 
 [electron]
+use_energy_x = false
 left_fermi_level = -3.9  # eV
 right_fermi_level = -3.9 # eV
-solver = "rgf"
-eta = 1e-5
+
+fermi_level = -3.9 # eV
+conduction_band_edge = -3.566382123573606 # eV
+valence_band_edge = -4.174109778287768    # eV
+
+band_edge_tracking = "eigenvalues"
+
+eta = 1e-8
+
+[electron.solver]
+algorithm = "rgf"
 
 [electron.obc]
-algorithm = "sancho-rubio" # "spectral"
+algorithm = "spectral"
 
 nevp_solver = "beyn"
-r_o = 10.0
-r_i = 0.9
-c_hat = 25
-num_quad_points = 26
+
+# By pure guesswork:
+num_ref_iterations = 2
+max_decay = 5
+min_decay = 1e-3
+r_o = 10
+r_i = 0.8
+m_0 = 32
+num_quad_points = 30
 
 [electron.obc.memoizer]
-enable = true
-num_ref_iterations = 4
-convergence_tol = 1e-2
+enable = false
+#enable = true
+#num_ref_iterations = 4
+#convergence_tol = 1e-2
 
 [coulomb_screening]
-solver = "rgf"
+
+interaction_cutoff = 8 # A
+
+[coulomb_screening.solver]
+algorithm = "rgf"
 
 [coulomb_screening.obc]
-algorithm = "sancho-rubio" # "spectral"
+algorithm = "spectral"
 block_sections = 1
+nevp_solver = "full"
+
+num_ref_iterations = 10
+max_decay = 14
+min_decay = 1e-4
+
+[coulomb_screening.obc.memoizer]
+enable = false
+
+[coulomb_screening.lyapunov]
+algorithm = "spectral"
+
+[coulomb_screening.lyapunov.memoizer]
+enable = false
 
 [phonon]
 model = "pseudo-scattering"
-phonon_energy = 40e-3         # eV
-deformation_potential = 75e-3 # eV
+phonon_energy = 1e-3         # eV
+deformation_potential = 5e-3 # eV
