@@ -1,39 +1,41 @@
 simulation_dir = "."
 
 [scba]
-max_iterations = 2
-mixing_factor = 1.0
-phonon = false
-coulomb_screening = true
+max_iterations = 21
+mixing_factor = 0.75
+phonon = true
 
-[electron]
-left_fermi_level = -3.9  # eV
-right_fermi_level = -3.9 # eV
-solver = "rgf"
-eta = 1e-5
+[electron] # ===========================================================
+# 0.2 V Potential difference.
+left_fermi_level = -3.6  # eV
+right_fermi_level = -3.8 # eV
 
-[electron.obc]
-algorithm = "sancho-rubio" # "spectral"
+fermi_level = -3.6                        # eV
+conduction_band_edge = -3.566382123573606 # eV
+valence_band_edge = -4.174109778287768    # eV
 
-nevp_solver = "beyn"
-r_o = 10.0
-r_i = 0.9
-c_hat = 25
-num_quad_points = 26
+solver.algorithm = "rgf"
+solver.max_batch_size = 1000
+solver.compute_current = true # Compute Meir-Wingreen current.
 
-[electron.obc.memoizer]
-enable = true
-num_ref_iterations = 4
-convergence_tol = 1e-2
+obc.algorithm = "spectral"
+obc.nevp_solver = "beyn"
+obc.block_sections = 1
 
-[coulomb_screening]
-solver = "rgf"
+# Parameters for Beyn's method.
+obc.num_ref_iterations = 3
+obc.max_decay = 15
+obc.min_decay = 1e-3
+obc.r_o = 10
+obc.r_i = 0.8
+obc.m_0 = 31
+obc.num_quad_points = 31
 
-[coulomb_screening.obc]
-algorithm = "sancho-rubio" # "spectral"
-block_sections = 1
+# Use memoization to speed up the OBC calculation.
+obc.memoizer.enable = true
 
-[phonon]
+
+[phonon] # =============================================================
 model = "pseudo-scattering"
 phonon_energy = 40e-3         # eV
 deformation_potential = 75e-3 # eV
