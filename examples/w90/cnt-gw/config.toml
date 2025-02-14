@@ -1,13 +1,13 @@
 simulation_dir = "."
 
-[scba]
-min_iterations = 1
+[scba] # ===============================================================
 max_iterations = 21
 mixing_factor = 0.5
-coulomb_screening = true
-phonon = false
 
-[electron]
+coulomb_screening = true
+
+[electron] # ===========================================================
+# 0.2 V Potential difference.
 left_fermi_level = -3.6  # eV
 right_fermi_level = -3.8 # eV
 
@@ -17,51 +17,42 @@ valence_band_edge = -4.174109778287768    # eV
 
 band_edge_tracking = "eigenvalues"
 
-solver = "rgf"
-eta_obc = 0
-eta = 1e-12
+solver.algorithm = "rgf"
+solver.max_batch_size = 1000
+solver.compute_current = true # Compute Meir-Wingreen current.
 
-[electron.obc]
-algorithm = "spectral"
+obc.algorithm = "spectral"
+obc.nevp_solver = "beyn"
+obc.block_sections = 1
 
-nevp_solver = "beyn"
+# Parameters for Beyn's method.
+obc.num_ref_iterations = 3
+obc.max_decay = 15
+obc.min_decay = 1e-3
+obc.r_o = 10
+obc.r_i = 0.8
+obc.m_0 = 31
+obc.num_quad_points = 31
 
-# By pure guesswork:
-num_ref_iterations = 2
-max_decay = 5
-min_decay = 1e-3
-r_o = 10
-r_i = 0.8
-m_0 = 32
-num_quad_points = 30
-
-[electron.obc.memoizer]
-enable = false
-
-[coulomb_screening]
-solver = "rgf"
-
+[coulomb_screening] # ==================================================
 interaction_cutoff = 8 # Å
 
-[coulomb_screening.obc]
-algorithm = "spectral"
-block_sections = 1
-nevp_solver = "full"
+num_connected_blocks = 2 # Can be 1, 2, 3, or "auto"
 
-num_ref_iterations = 10
-max_decay = 14
-min_decay = 1e-4
+solver.algorithm = "rgf"
+solver.max_batch_size = 1000
 
-[coulomb_screening.obc.memoizer]
-enable = false
+obc.algorithm = "spectral"
+obc.nevp_solver = "beyn"
+obc.block_sections = 2
 
-[coulomb_screening.lyapunov]
-algorithm = "spectral"
+# Parameters for Beyn's method.
+obc.num_ref_iterations = 3
+obc.max_decay = 15
+obc.min_decay = 1e-3
+obc.r_o = 10
+obc.r_i = 0.8
+obc.m_0 = 32
+obc.num_quad_points = 31
 
-[coulomb_screening.lyapunov.memoizer]
-enable = false
-
-[phonon]
-model = "pseudo-scattering"
-phonon_energy = 1e-3         # eV
-deformation_potential = 5e-3 # eV
+lyapunov.algorithm = "spectral"
