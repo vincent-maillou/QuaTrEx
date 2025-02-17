@@ -8,6 +8,12 @@ from mpi4py.MPI import COMM_WORLD as comm
 from quatrex.core.quatrex_config import parse_config
 from quatrex.core.qtbm import QTBM
 
+from cupyx.scipy.sparse import SparseEfficiencyWarning
+
+import warnings
+warnings.simplefilter(action='ignore', category=SparseEfficiencyWarning)
+
+
 PATH = os.path.dirname(__file__)
 
 if __name__ == "__main__":
