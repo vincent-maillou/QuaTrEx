@@ -6,24 +6,31 @@ import numpy as np
 from mpi4py.MPI import COMM_WORLD as comm
 
 from quatrex.core.quatrex_config import parse_config
-from quatrex.core.scba import SCBA
+from quatrex.core.qtbm import QTBM
+
+from cupyx.scipy.sparse import SparseEfficiencyWarning
+
+import warnings
+warnings.simplefilter(action='ignore', category=SparseEfficiencyWarning)
+
 
 PATH = os.path.dirname(__file__)
 
 if __name__ == "__main__":
-    with threadpool_limits(limits=1):
+    with threadpool_limits(limits=128):
         config = parse_config(os.path.join(PATH, "config.toml"))
-        scba = SCBA(config)
+        qtbm = QTBM(config)
         tic = time.perf_counter()
-        scba.run()
+        qtbm.run()
         toc = time.perf_counter()
 
     if comm.rank == 0:
-        print(f"Leaving SCBA after: {(toc - tic):.2f} s")
+        print(f"Leaving QTBM after: {(toc - tic):.2f} s")
 
         output_dir = f"{PATH}/outputs"
-        os.mkdir(output_dir)
-
-        np.save(f"{output_dir}/electron_ldos.npy", scba.observables.electron_ldos)
-        np.save(f"{output_dir}/electron_density.npy", scba.observables.electron_density)
-        np.save(f"{output_dir}/hole_density.npy", scba.observables.hole_density)
+        try:
+            os.mkdir(output_dir)
+        except FileExistsError:
+            pass
+        np.save(f"{output_dir}/transmission.npy", qtbm.observables.electron_transmission)
+        np.save(f"{output_dir}/dos.npy", qtbm.observables.electron_DOS)

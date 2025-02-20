@@ -8,7 +8,7 @@ right_fermi_level = -3.9 # eV
 [electron.obc]
 algorithm = "spectral"
 
-nevp_solver = "beyn"
+nevp_solver = "full"
 r_o = 10.0
 r_i = 0.9
 m_0 = 25
