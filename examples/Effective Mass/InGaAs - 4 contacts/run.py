@@ -34,7 +34,10 @@ if __name__ == "__main__":
             pass
 
         for n in range(qtbm.n_transmissions):
-            np.save(f"{output_dir}/transmission_{qtbm.observables.electron_transmission_labels[n]}.npy", qtbm.observables.electron_transmission[n,:])
+            np.save(f"{output_dir}/transmission_{qtbm.observables.electron_transmission_contacts_labels[n]}.npy", qtbm.observables.electron_transmission_contacts[n,:])
+
+        for n in range(qtbm.n_cont):
+            np.save(f"{output_dir}/transmission_slabs_x_{qtbm.contacts[n].name[0]}.npy", qtbm.observables.electron_transmission_x_slabs[n,:,:])
         
         for n in range(qtbm.n_cont):
-            np.save(f"{output_dir}/dos_{qtbm.contacts[n].name[0]}.npy", qtbm.observables.electron_DOS[n,:])
+            np.save(f"{output_dir}/dos_{qtbm.contacts[n].name[0]}.npy", qtbm.observables.electron_DOS_x_slabs[n,:])
