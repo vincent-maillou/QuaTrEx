@@ -1,0 +1,68 @@
+simulation_dir = "."
+
+[scba]
+min_iterations = 1
+max_iterations = 101
+mixing_factor = 0.5
+output_interval = 1
+coulomb_screening = true
+phonon = true
+
+[electron]
+# 0.6 V potential difference.
+left_fermi_level = -2.0836588  # eV
+right_fermi_level = -2.6836588 # eV
+
+fermi_level = -2.0836588       # eV
+conduction_band_edge = -2.0846 # eV
+valence_band_edge = -4.8176    # eV
+
+# No band edge tracking.
+# band_edge_tracking = "eigenvalues"
+
+solver.algorithm = "rgf"
+solver.max_batch_size = 64
+solver.compute_current = true # Compute Meir-Wingreen current.
+
+obc.algorithm = "spectral"
+obc.nevp_solver = "beyn"
+obc.block_sections = 4
+
+# Parameters for Beyn's method.
+obc.num_ref_iterations = 3
+obc.max_decay = 7
+obc.min_decay = 5e-4
+obc.r_o = 5.6              # Corresponds to 1000**(1/block_sections).
+obc.r_i = 0.76
+obc.m_0 = 208
+obc.num_quad_points = 51
+
+[coulomb_screening]
+interaction_cutoff = 5.5 # Å
+
+solver.algorithm = "rgf"
+solver.max_batch_size = 32
+
+num_connected_blocks = 2 # Can be 1, 2, 3, or "auto".
+
+obc.algorithm = "spectral"
+obc.nevp_solver = "full"
+obc.block_sections = 8
+
+# Parameters for Beyn's method.
+obc.num_ref_iterations = 3
+obc.max_decay = 7
+obc.min_decay = 5e-4
+obc.r_o = 2.37             # Corresponds to 1000**(1/block_sections).
+obc.r_i = 0.87
+obc.m_0 = 416
+obc.num_quad_points = 51
+
+lyapunov.algorithm = "spectral"
+lyapunov.num_ref_iterations = 2
+
+[phonon]
+interaction_cutoff = 5.5     # Å
+model = "pseudo-scattering"
+phonon_energy = 50e-3
+deformation_potential = 5e-3
