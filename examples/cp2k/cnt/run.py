@@ -17,7 +17,7 @@ warnings.simplefilter(action='ignore', category=SparseEfficiencyWarning)
 PATH = os.path.dirname(__file__)
 
 if __name__ == "__main__":
-    with threadpool_limits(limits=128):
+    with threadpool_limits(limits=1):
         config = parse_config(os.path.join(PATH, "config.toml"))
         qtbm = QTBM(config)
         tic = time.perf_counter()
@@ -32,5 +32,13 @@ if __name__ == "__main__":
             os.mkdir(output_dir)
         except FileExistsError:
             pass
-        np.save(f"{output_dir}/transmission.npy", qtbm.observables.electron_transmission)
-        np.save(f"{output_dir}/dos.npy", qtbm.observables.electron_DOS)
+        
+        
+        for n in range(qtbm.n_transmissions):
+            np.save(f"{output_dir}/transmission_{qtbm.observables.electron_transmission_contacts_labels[n]}.npy", qtbm.observables.electron_transmission_contacts[n,:])
+
+        for n in range(qtbm.n_cont):
+            np.save(f"{output_dir}/transmission_slabs_x_{qtbm.contacts[n].name[0]}.npy", qtbm.observables.electron_transmission_x_slabs[n,:,:])
+        
+        for n in range(qtbm.n_cont):
+            np.save(f"{output_dir}/dos_{qtbm.contacts[n].name[0]}.npy", qtbm.observables.electron_DOS_x_slabs[n,:])
