@@ -59,10 +59,10 @@ class PCoulombScreening(ScatteringSelfEnergy):
         self,
         quatrex_config: QuatrexConfig,
         coulomb_screening_energies: NDArray,
-        number_of_kpoints: xp.ndarray,
     ) -> None:
         """Initializes the polarization."""
         self.energies = coulomb_screening_energies
+        number_of_kpoints = quatrex_config.electron.number_of_kpoints
         self.ne = len(self.energies)
         self.prefactor = (
             -1j
@@ -95,6 +95,9 @@ class PCoulombScreening(ScatteringSelfEnergy):
         for m in (g_lesser, g_greater):
             # These should ideally already be in nnz-distribution.
             m.dtranspose() if m.distribution_state != "nnz" else None
+        for m in (p_lesser, p_greater):
+            # These only need the correct shape, so discard the data.
+            m.dtranspose(discard=True) if m.distribution_state != "nnz" else None
 
         p_g_full = self.prefactor * fft_correlate_kpoints(
             g_greater.data, -g_lesser.data.conj()

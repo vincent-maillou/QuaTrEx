@@ -1,7 +1,6 @@
 # Copyright (c) 2024 ETH Zurich and the authors of the quatrex package.
 from qttools import NDArray, sparse, xp
 from qttools.datastructures import DSBSparse
-from scipy import sparse
 from qttools.datastructures.dsbsparse import _block_view
 
 
