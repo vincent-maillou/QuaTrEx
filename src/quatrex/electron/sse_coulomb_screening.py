@@ -325,18 +325,18 @@ class SigmaFock(ScatteringSelfEnergy):
         coulomb_matrix += coulomb_matrix_sparray
 
         if coulomb_matrix_dict is not None:
-            self.coulomb_matrix.data = 0
+            coulomb_matrix.data = 0
             number_of_kpoints = xp.array(
                 [1 if k <= 1 else k for k in number_of_kpoints]
             )
             assemble_kpoint_dsb(
-                self.coulomb_matrix,
+                coulomb_matrix,
                 coulomb_matrix_dict,
                 number_of_kpoints,
                 -(number_of_kpoints // 2),
             )
             # Change the sign of the Coulomb matrix.
-            self.coulomb_matrix.data *= -1
+            coulomb_matrix.data *= -1
         coulomb_matrix.dtranspose()
         self.coulomb_matrix_data = coulomb_matrix.data[0]
 
