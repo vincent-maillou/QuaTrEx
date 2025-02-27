@@ -18,7 +18,7 @@ from quatrex.core.compute_config import ComputeConfig
 from quatrex.core.quatrex_config import QuatrexConfig
 from quatrex.core.statistics import fermi_dirac
 from quatrex.core.subsystem import SubsystemSolver
-from quatrex.core.utils import get_periodic_superblocks, homogenize, assemble_kpoint_dsb
+from quatrex.core.utils import assemble_kpoint_dsb, get_periodic_superblocks, homogenize
 
 
 def _btd_subtract(a: DSBSparse, b: DSBSparse) -> None:
@@ -108,6 +108,7 @@ class ElectronSolver(SubsystemSolver):
 
         # Make sure that the Hamiltonian and overlap matrices are
         # Hermitian.
+        # TODO: Not implemented for k-points yet.
         self.hamiltonian_sparray = (
             0.5 * (self.hamiltonian_sparray + self.hamiltonian_sparray.conj().T)
         ).tocoo()
@@ -125,21 +126,6 @@ class ElectronSolver(SubsystemSolver):
             + tuple([k for k in number_of_kpoints if k > 1]),
         )
 
-        self.bare_system_matrix += self.overlap_sparray
-        scale_stack(
-            self.bare_system_matrix.data,
-            self.local_energies + 1j * quatrex_config.electron.eta,
-        )
-        if self.hamiltonian_dict is not None:
-            number_of_kpoints = xp.array(
-                [1 if k <= 1 else k for k in number_of_kpoints]
-            )
-            assemble_kpoint_dsb(
-                self.bare_system_matrix,
-                self.hamiltonian_dict,
-                number_of_kpoints,
-                0,
-            )
         # Load the potential.
         try:
             self.potential = distributed_load(
@@ -280,6 +266,7 @@ class ElectronSolver(SubsystemSolver):
     def _compute_obc(self) -> None:
         """Computes open boundary conditions."""
         # Extract the overlap matrix blocks.
+        # TODO: prove that k-points don't matter here. Probably have to add a phase.
         s_00 = 1j * self.eta_obc * self._get_block(self.overlap_sparray, (0, 0))
         s_01 = 1j * self.eta_obc * self._get_block(self.overlap_sparray, (0, 1))
         s_10 = 1j * self.eta_obc * self._get_block(self.overlap_sparray, (1, 0))
@@ -360,12 +347,29 @@ class ElectronSolver(SubsystemSolver):
 
         """
         self.system_matrix.data = 0.0
+        # TODO: prove that k-points don't matter here.
         self.system_matrix += self.overlap_sparray
         scale_stack(
             self.system_matrix.data,
             self.local_energies + 1j * self.eta,
         )
-        self.system_matrix -= self.hamiltonian_sparray + sparse.diags(self.potential)
+        if self.hamiltonian_dict is None:
+            self.system_matrix -= self.hamiltonian_sparray + sparse.diags(
+                self.potential
+            )
+        else:
+            number_of_kpoints = xp.array(
+                [
+                    1 if k <= 1 else k
+                    for k in self.quatrex_config.electron.number_of_kpoints
+                ]
+            )
+            assemble_kpoint_dsb(
+                self.system_matrix,
+                self.hamiltonian_dict,
+                number_of_kpoints,
+                0,
+            )
         _btd_subtract(self.system_matrix, sse_retarded)
 
     def _filter_peaks(self, out: tuple[DSBSparse, ...]) -> None:
@@ -465,6 +469,7 @@ class ElectronSolver(SubsystemSolver):
         g_lesser, g_greater, g_retarded = out
 
         # Make sure the Green's functions are skew-Hermitian.
+        # TODO: Make sure identity is correct for k-points.
         t0 = time.perf_counter()
         g_lesser.data = 0.5 * (
             g_lesser.data - g_lesser.ltranspose(copy=True).data.conj()
