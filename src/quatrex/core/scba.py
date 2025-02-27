@@ -50,6 +50,7 @@ class SCBAData:
             quatrex_config.input_dir / "electron_energies.npy"
         )
         block_sizes = distributed_load(quatrex_config.input_dir / "block_sizes.npy")
+        number_of_kpoints = quatrex_config.electron.number_of_kpoints
 
         # Find the maximum interaction cutoff.
         max_interaction_cutoff = 0.0
@@ -79,7 +80,8 @@ class SCBAData:
         self.g_retarded = dsbsparse_type.from_sparray(
             self.sparsity_pattern.astype(xp.complex128),
             block_sizes=block_sizes,
-            global_stack_shape=electron_energies.shape,
+            global_stack_shape=electron_energies.shape
+            + tuple([k for k in number_of_kpoints if k > 1]),
         )
         self.g_retarded._data[:] = 0.0  # Initialize to zero.
         self.g_lesser = dsbsparse_type.zeros_like(self.g_retarded)
@@ -119,7 +121,8 @@ class SCBAData:
             self.w_lesser = dsbsparse_type.from_sparray(
                 self.sparsity_pattern.astype(xp.complex128),
                 block_sizes=coulomb_screening_block_sizes,
-                global_stack_shape=electron_energies.shape,
+                global_stack_shape=electron_energies.shape
+                + tuple([k for k in number_of_kpoints if k > 1]),
             )
             self.w_greater = dsbsparse_type.zeros_like(self.w_lesser)
 
@@ -251,7 +254,6 @@ class SCBA:
             self.p_coulomb_screening = PCoulombScreening(
                 self.quatrex_config,
                 self.coulomb_screening_energies,
-                self.quatrex_config.electron.number_of_kpoints,,
             )
             self.coulomb_screening_solver = CoulombScreeningSolver(
                 self.quatrex_config,
