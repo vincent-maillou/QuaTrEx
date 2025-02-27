@@ -117,7 +117,7 @@ class CoulombScreeningSolver(SubsystemSolver):
             self.coulomb_matrix_dict = distributed_load(
                 quatrex_config.input_dir / "coulomb_matrix.pkl"
             )
-            self.coulomb_matrix_sparray = self.coulomb_matrix_dict[(0, 0, 0)].tocoo()
+            coulomb_matrix_sparray = self.coulomb_matrix_dict[(0, 0, 0)].tocoo()
             number_of_kpoints = quatrex_config.electron.number_of_kpoints
         # Make sure that the Coulomb matrix is Hermitian.
         coulomb_matrix_sparray = (
@@ -125,7 +125,7 @@ class CoulombScreeningSolver(SubsystemSolver):
         ).tocoo()
 
         # Scale the Coulomb matrix with the relative permittivity.
-        self.coulomb_matrix_sparray.data *= 1 / (
+        coulomb_matrix_sparray.data *= 1 / (
             quatrex_config.coulomb_screening.relative_permittivity
         )
         if self.coulomb_matrix_dict is not None:
