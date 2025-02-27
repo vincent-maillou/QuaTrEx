@@ -10,7 +10,7 @@ from quatrex.core.quatrex_config import QuatrexConfig
 from quatrex.core.sse import ScatteringSelfEnergy
 
 
-def fft_correlate(a: NDArray, b: NDArray) -> NDArray:
+def fft_correlate_kpoints(a: NDArray, b: NDArray) -> NDArray:
     """Computes the correlation of two arrays using FFT.
 
     Parameters
@@ -26,10 +26,21 @@ def fft_correlate(a: NDArray, b: NDArray) -> NDArray:
         The cross-correlation of the two arrays.
 
     """
-    n = a.shape[0] + b.shape[0] - 1
-    a_fft = xp.fft.fft(a, n, axis=0)
-    b_fft = xp.fft.fft(b[::-1], n, axis=0)
-    return xp.fft.ifft(a_fft * b_fft, axis=0)
+    ne = a.shape[0] + b.shape[0] - 1
+    nka = a.shape[1:-1]
+    nkb = b.shape[1:-1]
+    a_fft = xp.fft.fftn(a, (ne,) + nka, axes=(0,) + tuple(range(1, len(nka) + 1)))
+    b_fft = xp.fft.fftn(
+        xp.flip(b, axis=(0,) + tuple(range(1, len(nkb) + 1))),
+        (ne,) + nkb,
+        axes=(0,) + tuple(range(1, len(nkb) + 1)),
+    )
+    # Don't really know why I have to roll the result, but it works.
+    return xp.roll(
+        xp.fft.ifftn(a_fft * b_fft, axes=(0,) + tuple(range(1, len(nka) + 1))),
+        shift=1,
+        axis=tuple(range(1, len(nka) + 1)),
+    )
 
 
 class PCoulombScreening(ScatteringSelfEnergy):
@@ -45,12 +56,21 @@ class PCoulombScreening(ScatteringSelfEnergy):
     """
 
     def __init__(
-        self, quatrex_config: QuatrexConfig, coulomb_screening_energies: NDArray
+        self,
+        quatrex_config: QuatrexConfig,
+        coulomb_screening_energies: NDArray,
     ) -> None:
         """Initializes the polarization."""
         self.energies = coulomb_screening_energies
+        number_of_kpoints = quatrex_config.electron.number_of_kpoints
         self.ne = len(self.energies)
-        self.prefactor = -1j / xp.pi * xp.abs(self.energies[1] - self.energies[0])
+        self.prefactor = (
+            -1j
+            / xp.pi
+            * xp.abs(self.energies[1] - self.energies[0])
+            / xp.prod(number_of_kpoints)
+        )
+        self.flatband = quatrex_config.electron.flatband
 
     def compute(
         self, g_lesser: DSBSparse, g_greater: DSBSparse, out: tuple[DSBSparse, ...]
@@ -79,11 +99,9 @@ class PCoulombScreening(ScatteringSelfEnergy):
             # These only need the correct shape, so discard the data.
             m.dtranspose(discard=True) if m.distribution_state != "nnz" else None
 
-        t1 = time.perf_counter()
-        if comm.rank == 0:
-            print(f"PCoulombScreening: stack->nnz transpose time: {t1-t0}", flush=True)
-
-        p_g_full = self.prefactor * fft_correlate(g_greater.data, -g_lesser.data.conj())
+        p_g_full = self.prefactor * fft_correlate_kpoints(
+            g_greater.data, -g_lesser.data.conj()
+        )
         p_l_full = -p_g_full[::-1].conj()
         # Fill the matrices with the data. Take second part of the
         # energy convolution.

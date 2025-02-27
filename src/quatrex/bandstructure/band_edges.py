@@ -107,7 +107,7 @@ def _compute_eigenvalues(
 
     h_0 = (
         sum(
-            _get_block(hamiltonian, index=block) + sigma_retarded.blocks[*block][ind]
+            _get_block(hamiltonian, index=block) + sigma_retarded.blocks[*block][*ind]
             for block in blocks
         )
         + potential
@@ -179,7 +179,12 @@ def find_renormalized_eigenvalues(
         rank_right = xp.digitize(ind_right, section_offsets) - 1
 
         if rank_left == comm.rank:
-            local_ind = ind_left - section_offsets[rank_left]
+            # NOTE: This assumes that each rank has all k-points and that the band edge
+            # is at the Gamma point.
+            # TODO: Generalize this to arbitrary k-points (and maybe change gamma point index).
+            local_ind = (ind_left - section_offsets[rank_left],) + tuple(
+                [s // 2 for s in sigma_retarded.shape[1:-2]]
+            )
             e_0_left = _compute_eigenvalues(
                 hamiltonian, overlap, potential, sigma_retarded, local_ind, "left"
             )
@@ -189,7 +194,12 @@ def find_renormalized_eigenvalues(
             left_mid_gap_energy = (left_valence_band + left_conduction_band_guess) / 2
 
         if rank_right == comm.rank:
-            local_ind = ind_right - section_offsets[rank_right]
+            # NOTE: This assumes that each rank has all k-points and that the band edge
+            # is at the Gamma point.
+            # TODO: Generalize this to arbitrary k-points (and maybe change gamma point index).
+            local_ind = (ind_right - section_offsets[rank_right],) + tuple(
+                [s // 2 for s in sigma_retarded.shape[1:-2]]
+            )
             e_0_right = _compute_eigenvalues(
                 hamiltonian, overlap, potential, sigma_retarded, local_ind, "right"
             )

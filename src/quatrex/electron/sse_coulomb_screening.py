@@ -10,6 +10,7 @@ from qttools.utils.mpi_utils import distributed_load
 from quatrex.core.compute_config import ComputeConfig
 from quatrex.core.quatrex_config import QuatrexConfig
 from quatrex.core.sse import ScatteringSelfEnergy
+from quatrex.core.utils import assemble_kpoint_dsb
 
 
 def fft_convolve(a: NDArray, b: NDArray) -> NDArray:
@@ -28,13 +29,33 @@ def fft_convolve(a: NDArray, b: NDArray) -> NDArray:
         The convolution of the two arrays.
 
     """
-    n = a.shape[0] + b.shape[0] - 1
-    a_fft = xp.fft.fft(a, n, axis=0)
-    b_fft = xp.fft.fft(b, n, axis=0)
-    return xp.fft.ifft(a_fft * b_fft, axis=0)
+    ne = a.shape[0] + b.shape[0] - 1
+    a_fft = xp.fft.fftn(a, (ne,), axes=(0,))
+    b_fft = xp.fft.fftn(b, (ne,), axes=(0,))
+    return xp.fft.ifftn(a_fft * b_fft, axes=(0,))
 
 
-def fft_correlate(a: NDArray, b: NDArray) -> NDArray:
+def fft_circular_convolve(a: xp.ndarray, b: xp.ndarray, axes: tuple[int]) -> xp.ndarray:
+    """Computes the circular convolution of two arrays using the FFT."""
+    # Extract the shapes of the arrays along the axes as tuples.
+    nka = tuple(a.shape[i] for i in axes)
+    nkb = tuple(b.shape[i] for i in axes)
+    a_fft = xp.fft.fftn(a, nka, axes=axes)
+    b_fft = xp.fft.fftn(b, nkb, axes=axes)
+    return xp.fft.ifftn(a_fft * b_fft, axes=axes)
+
+
+def fft_convolve_kpoints(a: xp.ndarray, b: xp.ndarray) -> xp.ndarray:
+    """Computes the convolution of two arrays using the FFT."""
+    ne = a.shape[0] + b.shape[0] - 1
+    nka = a.shape[1:-1]
+    nkb = b.shape[1:-1]
+    a_fft = xp.fft.fftn(a, (ne,) + nka, axes=(0,) + tuple(range(1, len(nka) + 1)))
+    b_fft = xp.fft.fftn(b, (ne,) + nkb, axes=(0,) + tuple(range(1, len(nkb) + 1)))
+    return xp.fft.ifftn(a_fft * b_fft, axes=(0,) + tuple(range(1, len(nka) + 1)))
+
+
+def fft_correlate_kpoints(a: NDArray, b: NDArray) -> NDArray:
     """Computes the correlation of two arrays using FFT.
 
     Parameters
@@ -50,10 +71,21 @@ def fft_correlate(a: NDArray, b: NDArray) -> NDArray:
         The cross-correlation of the two arrays.
 
     """
-    n = a.shape[0] + b.shape[0] - 1
-    a_fft = xp.fft.fft(a, n, axis=0)
-    b_fft = xp.fft.fft(b[::-1], n, axis=0)
-    return xp.fft.ifft(a_fft * b_fft, axis=0)
+    ne = a.shape[0] + b.shape[0] - 1
+    nka = a.shape[1:-1]
+    nkb = b.shape[1:-1]
+    a_fft = xp.fft.fftn(a, (ne,) + nka, axes=(0,) + tuple(range(1, len(nka) + 1)))
+    b_fft = xp.fft.fftn(
+        xp.flip(b, axis=(0,) + tuple(range(1, len(nkb) + 1))),
+        (ne,) + nkb,
+        axes=(0,) + tuple(range(1, len(nkb) + 1)),
+    )
+    # Don't really know why I have to roll the result, but it works.
+    return xp.roll(
+        xp.fft.ifftn(a_fft * b_fft, axes=(0,) + tuple(range(1, len(nka) + 1))),
+        shift=1,
+        axis=tuple(range(1, len(nka) + 1)),
+    )
 
 
 def hilbert_transform(a: NDArray, energies: NDArray, eta=1e-8) -> NDArray:
@@ -77,8 +109,7 @@ def hilbert_transform(a: NDArray, energies: NDArray, eta=1e-8) -> NDArray:
          The Hilbert transform of a.
 
     """
-    # Add a small imaginary part to avoid singularity.
-    energy_differences = (energies - energies[0]).reshape(-1, 1)
+    energy_differences = xp.expand_dims(energies - energies[0], tuple(range(1, a.ndim)))
     ne = energies.size
     # eta for removing the singularity. See Cauchy principal value.
     b = (
@@ -111,9 +142,14 @@ class SigmaCoulombScreening(ScatteringSelfEnergy):
     ):
         """Initializes the scattering self-energy."""
         self.energies = electron_energies
+        number_of_kpoints = quatrex_config.electron.number_of_kpoints
         self.num_energies = self.energies.size
-        self.prefactor = 1j / (2 * xp.pi) * (self.energies[1] - self.energies[0])
-
+        self.prefactor = (
+            1j
+            / (2 * xp.pi)
+            * (self.energies[1] - self.energies[0])
+            / xp.prod(number_of_kpoints)
+        )
         self.big_block_sizes = None
 
     def compute(
@@ -183,14 +219,14 @@ class SigmaCoulombScreening(ScatteringSelfEnergy):
         # Second term are corrections for negative frequencies that
         # where cut off by the polarization calculation.
         sigma_lesser.data += self.prefactor * (
-            fft_convolve(g_lesser.data, w_lesser.data)[: self.num_energies]
-            - fft_correlate(g_lesser.data, w_greater.data.conj())[
+            fft_convolve_kpoints(g_lesser.data, w_lesser.data)[: self.num_energies]
+            - fft_correlate_kpoints(g_lesser.data, w_greater.data.conj())[
                 self.num_energies - 1 :
             ]
         )
         sigma_greater.data += self.prefactor * (
-            fft_convolve(g_greater.data, w_greater.data)[: self.num_energies]
-            - fft_correlate(g_greater.data, w_lesser.data.conj())[
+            fft_convolve_kpoints(g_greater.data, w_greater.data)[: self.num_energies]
+            - fft_correlate_kpoints(g_greater.data, w_lesser.data.conj())[
                 self.num_energies - 1 :
             ]
         )
@@ -242,15 +278,37 @@ class SigmaFock(ScatteringSelfEnergy):
     ):
         """Initializes the bare Fock self-energy."""
         self.energies = electron_energies
-        self.prefactor = 1j / (2 * xp.pi) * (self.energies[1] - self.energies[0])
-        coulomb_matrix_sparray = distributed_load(
-            quatrex_config.input_dir / "coulomb_matrix.npz"
-        ).astype(xp.complex128)
+        number_of_kpoints = quatrex_config.electron.number_of_kpoints
+        self.prefactor = (
+            1j
+            / (2 * xp.pi)
+            * (self.energies[1] - self.energies[0])
+            / xp.prod(number_of_kpoints)
+        )
+        try:
+            coulomb_matrix_sparray = distributed_load(
+                quatrex_config.input_dir / "coulomb_matrix.npz"
+            ).astype(xp.complex128)
+            coulomb_matrix_dict = None
+        except FileNotFoundError:
+            coulomb_matrix_dict = distributed_load(
+                quatrex_config.input_dir / "coulomb_matrix.pkl"
+            )
+            coulomb_matrix_sparray = coulomb_matrix_dict[(0, 0, 0)]
         # Make sure that the Coulomb matrix is Hermitian.
         coulomb_matrix_sparray = (
             0.5 * (coulomb_matrix_sparray + coulomb_matrix_sparray.conj().T)
         ).tocoo()
 
+        # Scale the coulomb matrix by the relative permittivity.
+        coulomb_matrix_sparray *= (
+            1 / quatrex_config.coulomb_screening.relative_permittivity
+        )
+        if coulomb_matrix_dict is not None:
+            coulomb_matrix_dict = {
+                k: v * 1 / quatrex_config.coulomb_screening.relative_permittivity
+                for k, v in coulomb_matrix_dict.items()
+            }
         # Load block sizes for the coulomb matrix.
         block_sizes = distributed_load(quatrex_config.input_dir / "block_sizes.npy")
 
@@ -260,10 +318,25 @@ class SigmaFock(ScatteringSelfEnergy):
         coulomb_matrix = compute_config.dsbsparse_type.from_sparray(
             sparsity_pattern.astype(xp.complex128),
             block_sizes=block_sizes,
-            global_stack_shape=(comm.size,),
+            global_stack_shape=(comm.size,)
+            + tuple([k for k in number_of_kpoints if k > 1]),
         )
         coulomb_matrix.data = 0.0
         coulomb_matrix += coulomb_matrix_sparray
+
+        if coulomb_matrix_dict is not None:
+            coulomb_matrix.data = 0
+            number_of_kpoints = xp.array(
+                [1 if k <= 1 else k for k in number_of_kpoints]
+            )
+            assemble_kpoint_dsb(
+                coulomb_matrix,
+                coulomb_matrix_dict,
+                number_of_kpoints,
+                -(number_of_kpoints // 2),
+            )
+            # Change the sign of the Coulomb matrix.
+            coulomb_matrix.data *= -1
         coulomb_matrix.dtranspose()
         self.coulomb_matrix_data = coulomb_matrix.data[0]
 
@@ -292,7 +365,11 @@ class SigmaFock(ScatteringSelfEnergy):
 
         # Compute the electron density by summing over energies.
         gl_density = self.prefactor * g_lesser.data.sum(axis=0)
-        sigma_retarded.data += xp.real(gl_density * self.coulomb_matrix_data)
+        sigma_retarded.data += fft_circular_convolve(
+            gl_density,
+            self.coulomb_matrix_data,
+            axes=tuple(range(gl_density.ndim - 1)),
+        )
 
         # NOTE: The electron Green's functions and self-energies must
         # not be transposed back to stack distribution, as they are

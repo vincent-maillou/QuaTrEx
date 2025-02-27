@@ -95,7 +95,7 @@ class OBCConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     algorithm: Literal["sancho-rubio", "spectral"] = "spectral"
-    nevp_solver: Literal["beyn", "full"] = "beyn"
+    nevp_solver: Literal["beyn", "full"] = "full"
 
     # Parameters for spectral OBC algorithms.
     block_sections: PositiveInt = 1
@@ -146,6 +146,8 @@ class ElectronConfig(BaseModel):
     """Options for the electronic subsystem solver."""
 
     model_config = ConfigDict(extra="forbid")
+
+    number_of_kpoints: tuple[PositiveInt, PositiveInt, PositiveInt] = (1, 1, 1)
 
     solver: SolverConfig = SolverConfig()
     obc: OBCConfig = OBCConfig()
@@ -227,6 +229,8 @@ class CoulombScreeningConfig(BaseModel):
     lyapunov: LyapunovConfig = LyapunovConfig()
 
     temperature: PositiveFloat = 300.0  # K
+
+    relative_permittivity: PositiveFloat = 1.0
 
     left_temperature: PositiveFloat | None = None
     right_temperature: PositiveFloat | None = None

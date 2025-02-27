@@ -95,7 +95,7 @@ def density(x: DSBSparse, overlap: sparse.spmatrix | None = None) -> NDArray:
 
         local_density.append(local_density_slice.imag)
 
-    return xp.vstack(comm.allgather(xp.hstack(local_density)))
+    return xp.vstack(comm.allgather(xp.concatenate(local_density, axis=-1)))
 
 
 def contact_currents(
@@ -132,8 +132,13 @@ def contact_currents(
         axis2=-1,
     )
 
-    i_left = xp.hstack(comm.allgather(i_left))
-    i_right = xp.hstack(comm.allgather(i_right))
+    # the_gathered = comm.allgather(i_left)
+    # print(f"shapes: {[g.shape for g in the_gathered]}, rank {comm.rank}", flush=True)
+    # comm.Barrier()
+    # exit()
+
+    i_left = xp.concatenate(comm.allgather(i_left), axis=0)
+    i_right = xp.concatenate(comm.allgather(i_right), axis=0)
     return i_left, i_right
 
 
@@ -166,4 +171,4 @@ def device_current(x_lesser: DSBSparse, operator: sparse.spmatrix) -> NDArray:
         ).sum(axis=(-1, -2))
         local_current.append(layer_current)
 
-    return xp.vstack(comm.allgather(xp.vstack(local_current).T))
+    return xp.concatenate(comm.allgather(xp.vstack(local_current).T), axis=-1)
