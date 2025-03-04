@@ -1,0 +1,21 @@
+simulation_dir = "."
+
+
+[electron]
+left_fermi_level = -3.9  # eV
+right_fermi_level = -3.9 # eV
+
+[electron.obc]
+algorithm = "spectral"
+
+nevp_solver = "full"
+r_o = 10.0
+r_i = 0.9
+m_0 = 25
+num_quad_points = 25
+
+[electron.obc.memoizer]
+enable = false
+num_ref_iterations = 4
+convergence_tol = 1e-2
+

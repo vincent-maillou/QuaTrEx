@@ -6,24 +6,39 @@ import numpy as np
 from mpi4py.MPI import COMM_WORLD as comm
 
 from quatrex.core.quatrex_config import parse_config
-from quatrex.core.scba import SCBA
+from quatrex.core.qtbm import QTBM
+
+from cupyx.scipy.sparse import SparseEfficiencyWarning
+
+import warnings
+warnings.simplefilter(action='ignore', category=SparseEfficiencyWarning)
+
 
 PATH = os.path.dirname(__file__)
 
 if __name__ == "__main__":
     with threadpool_limits(limits=1):
         config = parse_config(os.path.join(PATH, "config.toml"))
-        scba = SCBA(config)
+        qtbm = QTBM(config)
         tic = time.perf_counter()
-        scba.run()
+        qtbm.run()
         toc = time.perf_counter()
 
     if comm.rank == 0:
-        print(f"Leaving SCBA after: {(toc - tic):.2f} s")
+        print(f"Leaving QTBM after: {(toc - tic):.2f} s")
 
         output_dir = f"{PATH}/outputs"
-        os.mkdir(output_dir)
+        try:
+            os.mkdir(output_dir)
+        except FileExistsError:
+            pass
+        
+        
+        for n in range(qtbm.n_transmissions):
+            np.save(f"{output_dir}/transmission_{qtbm.observables.electron_transmission_contacts_labels[n]}.npy", qtbm.observables.electron_transmission_contacts[n,:])
 
-        np.save(f"{output_dir}/electron_ldos.npy", scba.observables.electron_ldos)
-        np.save(f"{output_dir}/electron_density.npy", scba.observables.electron_density)
-        np.save(f"{output_dir}/hole_density.npy", scba.observables.hole_density)
+        for n in range(qtbm.n_cont):
+            np.save(f"{output_dir}/transmission_slabs_x_{qtbm.contacts[n].name[0]}.npy", qtbm.observables.electron_transmission_x_slabs[n,:,:])
+        
+        for n in range(qtbm.n_cont):
+            np.save(f"{output_dir}/dos_{qtbm.contacts[n].name[0]}.npy", qtbm.observables.electron_DOS_x_slabs[n,:])
